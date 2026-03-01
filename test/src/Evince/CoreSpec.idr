@@ -8,27 +8,28 @@ coreSpec = do
   describe "TestResult" $ do
     describe "monadic chaining" $ do
       it "applies function on Pass" $
-        mustBe (Pass 1 >>= \x => Pass (x + 1)) (Pass 2)
+        (Pass 1 >>= \x => Pass (x + 1)) `mustBe` Pass 2
 
       it "short-circuits on Fail" $
-        mustBe (Fail (Reason "boom") >>= \x => Pass (the Nat x + 1))
-               (Fail (Reason "boom"))
+        (Fail (Reason "boom") >>= \x => Pass (the Nat x + 1))
+          `mustBe` Fail (Reason "boom")
 
       it "short-circuits on Skip" $
-        mustBe (Skip Nothing >>= \x => Pass (the Nat x + 1))
-               (Skip Nothing)
+        (Skip Nothing >>= \x => Pass (the Nat x + 1))
+          `mustBe` Skip Nothing
 
-      it "stops at first failure in a do-block" $ do
-        mustBe (1 + 1) 2
-        mustBe "hello" "hello"
+      it "stops at first failure in a do-block" $
+        (do 1 `mustBe` 2
+            mustFail "should not reach here")
+          `mustBe` Fail (ExpectedButGot "not equal" "2" "1")
 
   describe "Summary" $ do
     it "neutral is all zeros" $
-      mustBe (totalCount (the Summary neutral)) 0
+      totalCount (the Summary neutral) `mustBe` 0
 
     it "combines componentwise" $
-      mustBe (totalCount (MkSummary 1 2 3 <+> MkSummary 4 5 6)) 21
+      totalCount (MkSummary 1 2 3 <+> MkSummary 4 5 6) `mustBe` 21
 
     describe "totalCount" $ do
       it "sums all fields" $
-        mustBe (totalCount (MkSummary 3 2 1)) 6
+        totalCount (MkSummary 3 2 1) `mustBe` 6

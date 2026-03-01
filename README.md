@@ -34,14 +34,14 @@ import Evince
 spec : Spec ()
 spec = describe "Parser" $ do
   it "parses positive integers" $
-    mustBe (parse "42") (Right 42)
+    parse "42" `mustBe` Right 42
 
   it "rejects invalid input" $
     mustBeLeft (parse "abc")
 
   it "supports multiple expectations" $ do
-    mustBe (1 + 2) 3
-    mustBe (2 + 1) 3
+    (1 + 2) `mustBe` 3
+    (2 + 1) `mustBe` 3
 
 main : IO ()
 main = runSpec spec
@@ -116,8 +116,8 @@ Multiple expectations in a single test short-circuit on first failure:
 
 ```idris
 it "validates a user" $ do
-  mustBe user.age 25
-  mustBe user.name "Alice"    -- skipped if age check fails
+  user.age `mustBe` 25
+  user.name `mustBe` "Alice"    -- skipped if age check fails
 ```
 
 ## Focused and Pending Tests
@@ -131,10 +131,10 @@ spec = describe "Feature" $ do
     pending
 
   fit "only this one runs" $       -- when any test is focused,
-    mustBe 1 1                     -- unfocused tests are excluded
+    1 `mustBe` 1                   -- unfocused tests are excluded
 
   it "normally runs" $             -- excluded when focused tests exist
-    mustBe 2 2
+    2 `mustBe` 2
 ```
 
 ## Output

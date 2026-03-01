@@ -7,79 +7,79 @@ expectationsSpec : Spec ()
 expectationsSpec = describe "Expectations" $ do
   describe "mustBe" $ do
     it "confirms equal integers" $
-      mustBe (mustBe 42 42) (Pass ())
+      (42 `mustBe` 42) `mustBe` Pass ()
     it "reports expected vs actual on mismatch" $
-      mustBe (mustBe 1 2) (Fail $ ExpectedButGot "not equal" "2" "1")
+      (1 `mustBe` 2) `mustBe` Fail (ExpectedButGot "not equal" "2" "1")
 
   describe "mustNotBe" $ do
     it "confirms distinct values" $
-      mustBe (mustNotBe 1 2) (Pass ())
+      (1 `mustNotBe` 2) `mustBe` Pass ()
     it "reports when values are unexpectedly equal" $
-      mustBe (mustNotBe 1 1) (Fail $ ExpectedButGot "expected to differ" "1" "1")
+      (1 `mustNotBe` 1) `mustBe` Fail (ExpectedButGot "expected to differ" "1" "1")
 
   describe "mustEqual" $ do
     it "confirms equal strings" $
-      mustBe (mustEqual "abc" "abc") (Pass ())
+      ("abc" `mustEqual` "abc") `mustBe` Pass ()
     it "reports mismatch with Show output" $
-      mustBe (mustEqual "abc" "def") (Fail $ ExpectedButGot "not equal" "\"def\"" "\"abc\"")
+      ("abc" `mustEqual` "def") `mustBe` Fail (ExpectedButGot "not equal" "\"def\"" "\"abc\"")
 
   describe "mustSatisfy" $ do
     it "confirms when predicate holds" $
-      mustBe (mustSatisfy 4 (> 3)) (Pass ())
+      (4 `mustSatisfy` (> 3)) `mustBe` Pass ()
     it "reports the value when predicate fails" $
-      mustBe (mustSatisfy 2 (> 3)) (Fail $ PredicateFailed "predicate not satisfied" "2")
+      (2 `mustSatisfy` (> 3)) `mustBe` Fail (PredicateFailed "predicate not satisfied" "2")
 
   describe "mustBeTrue" $ do
     it "accepts True" $
-      mustBe (mustBeTrue True) (Pass ())
+      mustBeTrue True `mustBe` Pass ()
 
   describe "mustBeFalse" $ do
     it "accepts False" $
-      mustBe (mustBeFalse False) (Pass ())
+      mustBeFalse False `mustBe` Pass ()
 
   describe "mustBeJust" $ do
     it "accepts Just values" $
-      mustBe (mustBeJust (Just 1)) (Pass ())
+      mustBeJust (Just 1) `mustBe` Pass ()
     it "rejects Nothing" $
-      mustBe (mustBeJust (the (Maybe Int) Nothing))
-             (Fail $ Reason "expected Just but got Nothing")
+      mustBeJust (the (Maybe Int) Nothing)
+        `mustBe` Fail (Reason "expected Just but got Nothing")
 
   describe "mustBeNothing" $ do
     it "accepts Nothing" $
-      mustBe (mustBeNothing (the (Maybe Int) Nothing)) (Pass ())
+      mustBeNothing (the (Maybe Int) Nothing) `mustBe` Pass ()
 
   describe "mustBeRight" $ do
     it "accepts Right values" $
-      mustBe (mustBeRight (the (Either String Int) (Right 1))) (Pass ())
+      mustBeRight (the (Either String Int) (Right 1)) `mustBe` Pass ()
 
   describe "mustBeLeft" $ do
     it "accepts Left values" $
-      mustBe (mustBeLeft (the (Either String Int) (Left "err"))) (Pass ())
+      mustBeLeft (the (Either String Int) (Left "err")) `mustBe` Pass ()
 
   describe "mustContain" $ do
     it "finds a contiguous subsequence" $
-      mustBe (mustContain [1,2,3,4] [2,3]) (Pass ())
+      ([1,2,3,4] `mustContain` [2,3]) `mustBe` Pass ()
 
   describe "mustStartWith" $ do
     it "confirms matching prefix" $
-      mustBe (mustStartWith [1,2,3] [1,2]) (Pass ())
+      ([1,2,3] `mustStartWith` [1,2]) `mustBe` Pass ()
 
   describe "mustEndWith" $ do
     it "confirms matching suffix" $
-      mustBe (mustEndWith [1,2,3] [2,3]) (Pass ())
+      ([1,2,3] `mustEndWith` [2,3]) `mustBe` Pass ()
 
   describe "mustBeEmpty" $ do
     it "accepts empty list" $
-      mustBe (mustBeEmpty (the (List Int) [])) (Pass ())
+      mustBeEmpty (the (List Int) []) `mustBe` Pass ()
 
   describe "mustNotBeEmpty" $ do
     it "accepts non-empty list" $
-      mustBe (mustNotBeEmpty [1]) (Pass ())
+      mustNotBeEmpty [1] `mustBe` Pass ()
 
   describe "pending" $ do
     it "skips without a reason" $
-      mustBe pending (Skip Nothing)
+      pending `mustBe` Skip Nothing
 
   describe "pendingWith" $ do
     it "skips with the given reason" $
-      mustBe (pendingWith "later") (Skip (Just "later"))
+      pendingWith "later" `mustBe` Skip (Just "later")
