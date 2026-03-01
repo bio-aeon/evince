@@ -140,3 +140,19 @@ pending = Skip Nothing
 export
 pendingWith : String -> TestResult ()
 pendingWith msg = Skip (Just msg)
+
+||| Passes if the IO action returns a value decidably equal to `expected`.
+||| Used with `itIO`.
+export covering
+mustReturn : DecEq a => Show a => IO a -> a -> IO (TestResult ())
+mustReturn action expected = do
+  actual <- action
+  pure $ actual `mustBe` expected
+
+||| Passes if the IO action returns a value equal to `expected` via Eq.
+||| Used with `itIO`. Fallback for types without `DecEq`.
+export covering
+mustReturnEqual : Eq a => Show a => IO a -> a -> IO (TestResult ())
+mustReturnEqual action expected = do
+  actual <- action
+  pure $ actual `mustEqual` expected

@@ -1,5 +1,7 @@
 # Evince
 
+*Behavioral specifications that evince correctness.*
+
 A testing framework for Idris 2.
 
 Evince provides an Hspec-inspired BDD interface with `describe`/`it` blocks,
@@ -102,6 +104,20 @@ Run with `pack test <your-package>`. Exit code is 1 if any test fails, 0 otherwi
 | `mustBeEmpty`    | Passes if list is empty                      |
 | `mustNotBeEmpty` | Passes if list is non-empty                  |
 
+### IO
+
+| Function           | Constraint    | Description                                      |
+|--------------------|---------------|--------------------------------------------------|
+| `mustReturn`       | `DecEq, Show` | Passes if IO action returns decidably equal value |
+| `mustReturnEqual`  | `Eq, Show`    | Passes if IO action returns equal value via `Eq`  |
+
+Used with `itIO`:
+
+```idris
+itIO "reads the config file" $
+  readConfig "test.toml" `mustReturn` expectedConfig
+```
+
 ### Other
 
 | Function      | Description                                  |
@@ -135,6 +151,49 @@ spec = describe "Feature" $ do
 
   it "normally runs" $             -- excluded when focused tests exist
     2 `mustBe` 2
+```
+
+## Hooks
+
+Hooks run setup/teardown actions around tests:
+
+| Function    | Description                                |
+|-------------|--------------------------------------------|
+| `before`    | Run an IO action before each test          |
+| `after`     | Run an IO action after each test           |
+| `around`    | Wrap each test with a custom IO action     |
+| `beforeAll` | Run an IO action once before all tests     |
+| `afterAll`  | Run an IO action once after all tests      |
+
+```idris
+spec : Spec ()
+spec = describe "Database" $
+  before (connect "test.db") $
+  after  disconnect $ do
+    it "inserts a record" $
+      insertCount `mustBe` 1
+
+    it "queries records" $
+      queryAll `mustNotBeEmpty`
+```
+
+`beforeAll`/`afterAll` run once for the entire group rather than per-test.
+
+## Runners
+
+| Function                     | Description                                  |
+|------------------------------|----------------------------------------------|
+| `runSpec`                    | Run suite, print results, exit 1 on failure  |
+| `runSpecFailFast`            | Stop after the first failure                 |
+| `runSpecWith`                | Run with custom `RunConfig`                  |
+| `runSpecWithSummary`         | Run and return `Summary` (for meta-testing)  |
+| `runSpecWithSummaryAndConfig`| Run with config and return `Summary`         |
+
+Fail-fast mode stops execution after the first failing test:
+
+```idris
+main : IO ()
+main = runSpecFailFast spec
 ```
 
 ## Output

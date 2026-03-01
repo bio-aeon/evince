@@ -83,3 +83,10 @@ expectationsSpec = describe "Expectations" $ do
   describe "pendingWith" $ do
     it "skips with the given reason" $
       pendingWith "later" `mustBe` Skip (Just "later")
+
+  describe "mustReturn" $ do
+    itIO "accepts matching IO result" $
+      pure (the Nat 42) `mustReturn` 42
+    itIO "rejects mismatching IO result" $ do
+      r <- pure (the Nat 1) `mustReturn` 2
+      pure $ r `mustBe` Fail (ExpectedButGot "not equal" "2" "1")

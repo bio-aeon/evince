@@ -19,6 +19,7 @@ depends = contrib
 modules = Evince
         , Evince.Core
         , Evince.Expectations
+        , Evince.Hooks
         , Evince.Spec
         , Evince.Reporter.Console
         , Evince.Runner

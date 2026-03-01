@@ -95,10 +95,11 @@ Monad TestResult where
 
 public export
 data SpecTree : Type where
-  Describe : (label : String) -> (children : List SpecTree) -> SpecTree
-  It       : (label : String) -> (test : IO (TestResult ())) -> SpecTree
-  Pending  : (label : String) -> (reason : Maybe String) -> SpecTree
-  Focused  : SpecTree -> SpecTree
+  Describe    : (label : String) -> (children : List SpecTree) -> SpecTree
+  It          : (label : String) -> (test : IO (TestResult ())) -> SpecTree
+  Pending     : (label : String) -> (reason : Maybe String) -> SpecTree
+  Focused     : SpecTree -> SpecTree
+  WithCleanup : (cleanup : IO ()) -> (children : List SpecTree) -> SpecTree
 
 -- SnocList gives O(1) appending per describe/it in a do-block.
 -- Idris 2 resolves the correct monad (Spec vs TestResult) via
@@ -148,3 +149,12 @@ Show Summary where
 export
 totalCount : Summary -> Nat
 totalCount s = s.passed + s.failed + s.pending
+
+public export
+record RunConfig where
+  constructor MkRunConfig
+  failFast : Bool
+
+export
+defaultConfig : RunConfig
+defaultConfig = MkRunConfig False
