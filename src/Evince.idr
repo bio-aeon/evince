@@ -1,5 +1,7 @@
 module Evince
 
+import public Evince.App
+import public Evince.Config
 import public Evince.Core
 import public Evince.Spec
 import public Evince.Expectations

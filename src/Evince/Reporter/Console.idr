@@ -3,6 +3,7 @@ module Evince.Reporter.Console
 import Data.List
 import Data.String
 import Evince.Core
+import Evince.Report
 
 -- ANSI escape sequences
 esc : String -> String -> String
@@ -36,26 +37,36 @@ printPending label Nothing level =
 printPending label (Just reason) level =
   putStrLn $ indent level ++ yellow ("○ " ++ label ++ " (" ++ reason ++ ")")
 
+formatDuration : Integer -> String
+formatDuration nanos =
+  let ms = nanos `div` 1000000
+  in if ms >= 1000
+       then nanosToSeconds nanos ++ "s"
+       else show ms ++ "ms"
+
 ||| Print the result of a single test case.
 export
-printTestResult : String -> TestResult () -> Nat -> IO ()
-printTestResult label (Pass ()) level =
-  putStrLn $ indent level ++ green ("✓ " ++ label)
-printTestResult label (Fail info) level = do
-  putStrLn $ indent level ++ red ("✗ " ++ label)
+printTestResult : RunConfig -> String -> TestResult () -> (elapsed : Integer) -> Nat -> IO ()
+printTestResult cfg label (Pass ()) elapsed level =
+  let timing = if cfg.showTiming then " (" ++ formatDuration elapsed ++ ")" else ""
+  in putStrLn $ indent level ++ green ("✓ " ++ label) ++ timing
+printTestResult cfg label (Fail info) elapsed level = do
+  let timing = if cfg.showTiming then " (" ++ formatDuration elapsed ++ ")" else ""
+  putStrLn $ indent level ++ red ("✗ " ++ label) ++ timing
   let detailIndent = indent (S level)
   for_ (lines (show info)) $ \line =>
     putStrLn $ detailIndent ++ red line
-printTestResult label (Skip reason) level =
+printTestResult cfg label (Skip reason) _ level =
   printPending label reason level
 
 ||| Print the final summary line.
 export
-printSummary : Summary -> IO ()
-printSummary s = do
+printSummary : RunConfig -> Summary -> IO ()
+printSummary cfg s = do
   putStrLn ""
   let parts = [ green (show s.passed ++ " passing")
               , red (show s.failed ++ " failing")
               , yellow (show s.pending ++ " pending")
               ]
-  putStrLn $ "  " ++ concat (intersperse ", " parts)
+  let timing = if cfg.showTiming then " (" ++ formatDuration s.duration ++ ")" else ""
+  putStrLn $ "  " ++ concat (intersperse ", " parts) ++ timing

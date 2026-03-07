@@ -8,6 +8,8 @@ Evince provides an Hspec-inspired BDD interface with `describe`/`it` blocks,
 colored console output, and assertions powered by `DecEq` — Idris 2's
 decidable equality.
 
+> **Note:** Evince is experimental. The API may change between versions.
+
 ## Installation
 
 Add evince as a dependency in your `pack.toml`:
@@ -33,7 +35,7 @@ module Main
 
 import Evince
 
-spec : Spec ()
+spec : Spec () ()
 spec = describe "Parser" $ do
   it "parses positive integers" $
     parse "42" `mustBe` Right 42
@@ -59,6 +61,8 @@ Run with `pack test <your-package>`. Exit code is 1 if any test fails, 0 otherwi
 | `context`   | Alias for `describe`                                 |
 | `it`        | Define a test with pure expectations                 |
 | `itIO`      | Define a test with `IO`-based expectations           |
+| `itWith`    | Define a test that receives a resource               |
+| `itIOWith`  | Define an IO test that receives a resource           |
 | `xit`       | Skip a test (pending)                                |
 | `xdescribe` | Skip an entire group                                 |
 | `fit`       | Focus a test — only focused tests run when any exist |
@@ -118,6 +122,24 @@ itIO "reads the config file" $
   readConfig "test.toml" `mustReturn` expectedConfig
 ```
 
+### Control.App
+
+| Function         | Constraint              | Description                                      |
+|------------------|-------------------------|--------------------------------------------------|
+| `tryApp`         | —                       | Run `App (err :: Init) a` as `IO (Either err a)` |
+| `mustError`      | `Show err`              | Passes if the `App` computation throws           |
+| `mustErrorWith`  | `Show err, DecEq err`   | Passes if the error matches the expected value   |
+
+Used with `itIO`:
+
+```idris
+itIO "rejects negative transfer" $
+  mustError (transfer (-100))
+
+itIO "rejects with InvalidAmount" $
+  mustErrorWith (transfer (-100)) (InvalidAmount (-100))
+```
+
 ### Other
 
 | Function      | Description                                  |
@@ -141,7 +163,7 @@ it "validates a user" $ do
 Prefix with `x` to skip, or `f` to focus:
 
 ```idris
-spec : Spec ()
+spec : Spec () ()
 spec = describe "Feature" $ do
   xit "not implemented yet" $      -- skipped, shown in yellow
     pending
@@ -157,19 +179,24 @@ spec = describe "Feature" $ do
 
 Hooks run setup/teardown actions around tests:
 
-| Function    | Description                                |
-|-------------|--------------------------------------------|
-| `before`    | Run an IO action before each test          |
-| `after`     | Run an IO action after each test           |
-| `around`    | Wrap each test with a custom IO action     |
-| `beforeAll` | Run an IO action once before all tests     |
-| `afterAll`  | Run an IO action once after all tests      |
+| Function         | Description                                          |
+|------------------|------------------------------------------------------|
+| `before`         | Run an IO action before each test                    |
+| `after`          | Run an IO action after each test                     |
+| `around`         | Wrap each test with a custom IO action               |
+| `beforeAll`      | Run an IO action once before all tests               |
+| `afterAll`       | Run an IO action once after all tests                |
+| `provide`        | Produce a resource and thread it into tests          |
+| `beforeWith`     | Transform the resource type before each test         |
+| `aroundWith`     | Transform both resource type and wrap the test action|
+| `afterWith`      | Run cleanup with access to the resource              |
+| `beforeAllWith`  | Transform the resource type once (cached)            |
 
 ```idris
-spec : Spec ()
+spec : Spec () ()
 spec = describe "Database" $
   before (connect "test.db") $
-  after  disconnect $ do
+  after disconnect $ do
     it "inserts a record" $
       insertCount `mustBe` 1
 
@@ -179,15 +206,31 @@ spec = describe "Database" $
 
 `beforeAll`/`afterAll` run once for the entire group rather than per-test.
 
+### Resource-Passing Hooks
+
+`provide`, `beforeWith`, and `aroundWith` thread a resource into tests:
+
+```idris
+spec : Spec () ()
+spec = describe "Database" $
+  provide (connectDb "test.db") $
+  afterWith closeDb $ do
+    itIOWith "inserts a record" $ \conn => do
+      n <- insertRecord conn
+      pure $ n `mustBe` 1
+```
+
 ## Runners
 
-| Function                     | Description                                  |
-|------------------------------|----------------------------------------------|
-| `runSpec`                    | Run suite, print results, exit 1 on failure  |
-| `runSpecFailFast`            | Stop after the first failure                 |
-| `runSpecWith`                | Run with custom `RunConfig`                  |
-| `runSpecWithSummary`         | Run and return `Summary` (for meta-testing)  |
-| `runSpecWithSummaryAndConfig`| Run with config and return `Summary`         |
+| Function                      | Description                                       |
+|-------------------------------|---------------------------------------------------|
+| `runSpec`                     | Run suite, print results, exit 1 on failure       |
+| `runSpecFailFast`             | Stop after the first failure                      |
+| `runSpecTimed`                | Show per-test timing                              |
+| `runSpecWith`                 | Run with custom `RunConfig`                       |
+| `runSpecWithArgs`             | Run with CLI arg parsing                          |
+| `runSpecWithSummary`          | Run and return `Summary` (for meta-testing)       |
+| `runSpecWithSummaryAndConfig` | Run with config and return `Summary`              |
 
 Fail-fast mode stops execution after the first failing test:
 
@@ -195,6 +238,36 @@ Fail-fast mode stops execution after the first failing test:
 main : IO ()
 main = runSpecFailFast spec
 ```
+
+## CLI Options
+
+Use `runSpecWithArgs` to enable command-line configuration:
+
+```idris
+main : IO ()
+main = runSpecWithArgs spec
+```
+
+| Flag              | Description                                     |
+|-------------------|-------------------------------------------------|
+| `--fail-fast`     | Stop after the first failure                    |
+| `--times`         | Show per-test and total duration                |
+| `--match=PATTERN` | Run only tests whose name contains PATTERN      |
+| `--skip=PATTERN`  | Skip tests whose name contains PATTERN          |
+| `--randomize`     | Shuffle test order                              |
+| `--seed=N`        | Deterministic seed for shuffle                  |
+| `--junit=FILE`    | Write JUnit XML report to FILE                  |
+
+## JUnit XML
+
+Pass `--junit=report.xml` to produce a JUnit XML report alongside console output:
+
+```sh
+./my-tests --junit=report.xml
+```
+
+The output follows the standard JUnit XML format, compatible with GitHub Actions,
+Jenkins, GitLab CI, and other CI systems.
 
 ## Output
 
@@ -207,4 +280,14 @@ Parser
   ○ not implemented yet (pending)
 
   1 passing, 1 failing, 1 pending
+```
+
+With `--times`:
+
+```
+Parser
+  ✓ parses positive integers (0ms)
+  ✓ parses negative integers (0ms)
+
+  2 passing, 0 failing, 0 pending (1ms)
 ```

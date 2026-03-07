@@ -17,11 +17,16 @@ depends = contrib
 
 -- modules to install
 modules = Evince
+        , Evince.App
+        , Evince.Config
         , Evince.Core
         , Evince.Expectations
         , Evince.Hooks
+        , Evince.Random
+        , Evince.Report
         , Evince.Spec
         , Evince.Reporter.Console
+        , Evince.Reporter.JUnit
         , Evince.Runner
 
 -- main file (i.e. file to load at REPL)

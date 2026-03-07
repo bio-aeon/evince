@@ -4,7 +4,7 @@ import Data.IORef
 import Evince
 
 export
-hooksSpec : Spec ()
+hooksSpec : Spec () ()
 hooksSpec = describe "Hooks" $ do
   describe "before" $ do
     itIO "executes for each test" $ do
@@ -55,3 +55,47 @@ hooksSpec = describe "Hooks" $ do
         it "b" $ 2 `mustBe` 2
       cleaned <- readIORef ref
       pure $ cleaned `mustBe` True
+
+  describe "provide" $ do
+    itIO "threads resource into tests via itIOWith" $ do
+      ref <- newIORef (the (List Nat) [])
+      s <- runSpecWithSummary $ provide (pure (the Nat 42)) $ do
+        itIOWith "a" $ \n => do
+          modifyIORef ref (n ::)
+          pure $ n `mustBe` 42
+      vals <- readIORef ref
+      pure $ vals `mustBe` [42]
+
+  describe "beforeWith" $ do
+    itIO "transforms resource type" $ do
+      ref <- newIORef (the (List String) [])
+      s <- runSpecWithSummary $
+        provide (pure (the Nat 10)) $
+        beforeWith (\n => pure (show n)) $ do
+          itIOWith "a" $ \s => do
+            modifyIORef ref (s ::)
+            pure $ s `mustBe` "10"
+      vals <- readIORef ref
+      pure $ vals `mustBe` ["10"]
+
+  describe "afterWith" $ do
+    itIO "runs cleanup with access to resource" $ do
+      ref <- newIORef (the (List Nat) [])
+      s <- runSpecWithSummary $
+        provide (pure (the Nat 7)) $
+        afterWith (\n => modifyIORef ref (n ::)) $ do
+          it "a" $ 1 `mustBe` 1
+          it "b" $ 2 `mustBe` 2
+      vals <- readIORef ref
+      pure $ vals `mustBe` [7, 7]
+
+  describe "beforeAllWith" $ do
+    itIO "transforms resource once and caches" $ do
+      counter <- newIORef (the Nat 0)
+      s <- runSpecWithSummary $
+        provide (pure (the Nat 5)) $
+        beforeAllWith (\n => do modifyIORef counter (+ 1); pure (show n)) $ do
+          itIOWith "a" $ \s => pure $ s `mustBe` "5"
+          itIOWith "b" $ \s => pure $ s `mustBe` "5"
+      count <- readIORef counter
+      pure $ count `mustBe` 1

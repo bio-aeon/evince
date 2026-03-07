@@ -94,51 +94,54 @@ Monad TestResult where
   (Skip reason) >>= _ = Skip reason
 
 public export
-data SpecTree : Type where
-  Describe    : (label : String) -> (children : List SpecTree) -> SpecTree
-  It          : (label : String) -> (test : IO (TestResult ())) -> SpecTree
-  Pending     : (label : String) -> (reason : Maybe String) -> SpecTree
-  Focused     : SpecTree -> SpecTree
-  WithCleanup : (cleanup : IO ()) -> (children : List SpecTree) -> SpecTree
+data SpecTree : Type -> Type where
+  Describe    : (label : String) -> (children : List (SpecTree a)) -> SpecTree a
+  It          : (label : String) -> (test : a -> IO (TestResult ())) -> SpecTree a
+  Pending     : (label : String) -> (reason : Maybe String) -> SpecTree a
+  Focused     : SpecTree a -> SpecTree a
+  WithCleanup : (cleanup : IO ()) -> (children : List (SpecTree a)) -> SpecTree a
 
 -- SnocList gives O(1) appending per describe/it in a do-block.
 -- Idris 2 resolves the correct monad (Spec vs TestResult) via
 -- type-directed elaboration based on the expected return type.
 public export
-data Spec : Type -> Type where
-  MkSpec : SnocList SpecTree -> a -> Spec a
+data Spec : Type -> Type -> Type where
+  MkSpec : SnocList (SpecTree a) -> b -> Spec a b
 
 export
-Functor Spec where
+Functor (Spec a) where
   map f (MkSpec trees x) = MkSpec trees (f x)
 
 export
-Applicative Spec where
+Applicative (Spec a) where
   pure x = MkSpec [<] x
   (MkSpec ts1 f) <*> (MkSpec ts2 x) = MkSpec (ts1 ++ ts2) (f x)
 
 export
-Monad Spec where
+Monad (Spec a) where
   (MkSpec ts1 x) >>= f = let (MkSpec ts2 y) = f x in MkSpec (ts1 ++ ts2) y
 
+||| Extract the tree list from a completed spec.
 export
-getSpecTrees : Spec () -> List SpecTree
+getSpecTrees : Spec a () -> List (SpecTree a)
 getSpecTrees (MkSpec trees ()) = trees <>> []
 
 public export
 record Summary where
   constructor MkSummary
-  passed  : Nat
-  failed  : Nat
-  pending : Nat
+  passed   : Nat
+  failed   : Nat
+  pending  : Nat
+  duration : Integer
 
 export
 Semigroup Summary where
-  (MkSummary p1 f1 d1) <+> (MkSummary p2 f2 d2) = MkSummary (p1 + p2) (f1 + f2) (d1 + d2)
+  (MkSummary p1 f1 d1 t1) <+> (MkSummary p2 f2 d2 t2) =
+    MkSummary (p1 + p2) (f1 + f2) (d1 + d2) (t1 + t2)
 
 export
 Monoid Summary where
-  neutral = MkSummary 0 0 0
+  neutral = MkSummary 0 0 0 0
 
 export
 Show Summary where
@@ -153,8 +156,15 @@ totalCount s = s.passed + s.failed + s.pending
 public export
 record RunConfig where
   constructor MkRunConfig
-  failFast : Bool
+  failFast    : Bool
+  showTiming  : Bool
+  match       : Maybe String
+  skip        : Maybe String
+  randomize   : Bool
+  seed        : Maybe Nat
+  junitOutput : Maybe String
 
+||| Default configuration: no fail-fast, no timing, no filters.
 export
 defaultConfig : RunConfig
-defaultConfig = MkRunConfig False
+defaultConfig = MkRunConfig False False Nothing Nothing False Nothing Nothing

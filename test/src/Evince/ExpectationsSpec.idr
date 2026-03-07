@@ -3,7 +3,7 @@ module Evince.ExpectationsSpec
 import Evince
 
 export
-expectationsSpec : Spec ()
+expectationsSpec : Spec () ()
 expectationsSpec = describe "Expectations" $ do
   describe "mustBe" $ do
     it "confirms equal integers" $
