@@ -2,6 +2,7 @@ module Evince.Core
 
 import Data.SnocList
 import public Decidable.Equality
+import public Evince.SrcLoc
 
 %default total
 
@@ -96,7 +97,7 @@ Monad TestResult where
 public export
 data SpecTree : Type -> Type where
   Describe    : (label : String) -> (children : List (SpecTree a)) -> SpecTree a
-  It          : (label : String) -> (test : a -> IO (TestResult ())) -> SpecTree a
+  It          : (label : String) -> (loc : Maybe SrcLoc) -> (test : a -> IO (TestResult ())) -> SpecTree a
   Pending     : (label : String) -> (reason : Maybe String) -> SpecTree a
   Focused     : SpecTree a -> SpecTree a
   WithCleanup : (cleanup : IO ()) -> (children : List (SpecTree a)) -> SpecTree a
@@ -163,8 +164,10 @@ record RunConfig where
   randomize   : Bool
   seed        : Maybe Nat
   junitOutput : Maybe String
+  rerun       : Bool
+  jobs        : Nat
 
 ||| Default configuration: no fail-fast, no timing, no filters.
 export
 defaultConfig : RunConfig
-defaultConfig = MkRunConfig False False Nothing Nothing False Nothing Nothing
+defaultConfig = MkRunConfig False False Nothing Nothing False Nothing Nothing False 0

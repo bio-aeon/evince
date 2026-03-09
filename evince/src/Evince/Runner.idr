@@ -5,12 +5,16 @@ import Data.List
 import Data.String
 import System
 import System.Clock
+import System.Concurrency
 import Evince.Config
 import Evince.Core
+import Evince.Parallel
 import Evince.Random
 import Evince.Report
+import Evince.Reporter
 import Evince.Reporter.Console
 import Evince.Reporter.JUnit
+import Evince.Rerun
 
 hasFocused : List (SpecTree a) -> Bool
 hasFocused [] = False
@@ -40,9 +44,9 @@ applyFocus trees = if hasFocused trees then filterFocused trees else trees
 
 filterByLabel : (keep : String -> Bool) -> List (SpecTree a) -> List (SpecTree a)
 filterByLabel keep [] = []
-filterByLabel keep (It label test :: rest) =
+filterByLabel keep (It label loc test :: rest) =
   if keep label
-    then It label test :: filterByLabel keep rest
+    then It label loc test :: filterByLabel keep rest
     else filterByLabel keep rest
 filterByLabel keep (Describe label children :: rest) =
   if keep label
@@ -62,6 +66,26 @@ filterByMatch pat = filterByLabel (isInfixOf pat)
 
 filterBySkip : String -> List (SpecTree a) -> List (SpecTree a)
 filterBySkip pat = filterByLabel (not . isInfixOf pat)
+
+joinPath : List String -> String
+joinPath = concat . intersperse "."
+
+filterByPaths : List String -> List String -> List (SpecTree a) -> List (SpecTree a)
+filterByPaths _ _ [] = []
+filterByPaths paths ctx (It label loc test :: rest) =
+  if joinPath (ctx ++ [label]) `elem` paths
+    then It label loc test :: filterByPaths paths ctx rest
+    else filterByPaths paths ctx rest
+filterByPaths paths ctx (Describe label children :: rest) =
+  let filtered = filterByPaths paths (ctx ++ [label]) children
+  in case filtered of
+       [] => filterByPaths paths ctx rest
+       _  => Describe label filtered :: filterByPaths paths ctx rest
+filterByPaths paths ctx (Focused t :: rest) =
+  case filterByPaths paths ctx [t] of
+    [t'] => Focused t' :: filterByPaths paths ctx rest
+    _    => filterByPaths paths ctx rest
+filterByPaths paths ctx (t :: rest) = t :: filterByPaths paths ctx rest
 
 shuffleTrees : Nat -> List (SpecTree a) -> List (SpecTree a)
 shuffleTrees seed [] = []
@@ -93,11 +117,13 @@ mergeResults : EvalResult -> EvalResult -> EvalResult
 mergeResults (s1, r1) (s2, r2) = (s1 <+> s2, r1 ++ r2)
 
 mutual
-  evalTree : RunConfig -> IORef Bool -> List String -> SpecTree () -> Nat -> IO EvalResult
-  evalTree cfg abortRef path (Describe label children) level = do
-    printDescribe label level
-    evalForest cfg abortRef (path ++ [label]) children (S level)
-  evalTree cfg abortRef path (It label test) level = do
+  evalTree : Reporter -> RunConfig -> IORef Bool -> List String -> SpecTree () -> Nat -> IO EvalResult
+  evalTree reporter cfg abortRef path (Describe label children) level = do
+    reporter.onEvent (GroupStarted label level)
+    r <- evalForest reporter cfg abortRef (path ++ [label]) children (S level)
+    reporter.onEvent (GroupDone label)
+    pure r
+  evalTree reporter cfg abortRef path (It label loc test) level = do
     abort <- readIORef abortRef
     if abort
       then pure emptyResult
@@ -106,43 +132,97 @@ mutual
         result <- test ()
         end <- clockTime Monotonic
         let elapsed = toNano (timeDifference end start)
-        printTestResult cfg label result elapsed level
         let testPath = path ++ [label]
         let s = case result of
               Pass _   => { passed := 1, duration := elapsed } neutral
               Fail _   => { failed := 1, duration := elapsed } neutral
               Skip _   => { pending := 1 } neutral
         let report = case result of
-              Pass _      => MkTestReport testPath (Passed elapsed)
-              Fail info   => MkTestReport testPath (Failed info elapsed)
-              Skip reason => MkTestReport testPath (Skipped reason)
+              Pass _      => MkTestReport testPath loc (Passed elapsed)
+              Fail info   => MkTestReport testPath loc (Failed info elapsed)
+              Skip reason => MkTestReport testPath loc (Skipped reason)
+        reporter.onEvent (TestDone report level)
         when (cfg.failFast && s.failed > 0) (writeIORef abortRef True)
         pure (s, [< report])
-  evalTree cfg abortRef path (Pending label reason) level = do
-    printPending label reason level
-    let report = MkTestReport (path ++ [label]) (Skipped reason)
+  evalTree reporter cfg abortRef path (Pending label reason) level = do
+    reporter.onEvent (PendingTest label reason level)
+    let report = MkTestReport (path ++ [label]) Nothing (Skipped reason)
     pure ({ pending := 1 } neutral, [< report])
-  evalTree cfg abortRef path (Focused tree) level = evalTree cfg abortRef path tree level
-  evalTree cfg abortRef path (WithCleanup cleanup children) level = do
-    r <- evalForest cfg abortRef path children level
+  evalTree reporter cfg abortRef path (Focused tree) level =
+    evalTree reporter cfg abortRef path tree level
+  evalTree reporter cfg abortRef path (WithCleanup cleanup children) level = do
+    r <- evalForest reporter cfg abortRef path children level
     cleanup
     pure r
 
-  evalForest : RunConfig -> IORef Bool -> List String -> List (SpecTree ()) -> Nat -> IO EvalResult
-  evalForest _ _ _ [] _ = pure emptyResult
-  evalForest cfg abortRef path (t :: ts) level = do
+  evalForest : Reporter -> RunConfig -> IORef Bool -> List String -> List (SpecTree ()) -> Nat -> IO EvalResult
+  evalForest _ _ _ _ [] _ = pure emptyResult
+  evalForest reporter cfg abortRef path (t :: ts) level = do
     abort <- readIORef abortRef
     if abort
       then pure emptyResult
       else do
-        r1 <- evalTree cfg abortRef path t level
-        r2 <- evalForest cfg abortRef path ts level
+        r1 <- evalTree reporter cfg abortRef path t level
+        r2 <- evalForest reporter cfg abortRef path ts level
         pure (mergeResults r1 r2)
+
+makeReporter : RunConfig -> IO Reporter
+makeReporter cfg = do
+  let console = consoleReporter cfg
+  case cfg.junitOutput of
+    Just path => do
+      junit <- junitReporter path
+      pure (combineReporters [console, junit])
+    Nothing => pure console
+
+threadSafeReporter : Reporter -> IO Reporter
+threadSafeReporter r = do
+  m <- makeMutex
+  pure $ MkReporter $ \e => do
+    mutexAcquire m
+    r.onEvent e
+    mutexRelease m
+
+collectResults : Channel EvalResult -> Nat -> EvalResult -> IO EvalResult
+collectResults _ Z acc = pure acc
+collectResults chan (S k) acc = do
+  r <- channelGet chan
+  collectResults chan k (mergeResults acc r)
+
+evalParallel : Reporter -> RunConfig -> List (SpecTree ()) -> IO EvalResult
+evalParallel reporter cfg trees = do
+  chan <- makeChannel
+  abortRef <- newIORef False
+  let n = length trees
+  for_ trees $ \tree =>
+    forkIO $ do
+      r <- tryIO (evalTree reporter cfg abortRef [] tree 0) (pure emptyResult)
+      channelPut chan r
+  collectResults chan n emptyResult
+
+failedPaths : SnocList TestReport -> List (List String)
+failedPaths = foldl (\acc, r => case r.outcome of Failed _ _ => r.path :: acc; _ => acc) []
 
 runWithConfig : RunConfig -> List (SpecTree ()) -> IO EvalResult
 runWithConfig cfg trees = do
+  let filtered = applyFilters cfg trees
+  rerunFiltered <- if cfg.rerun
+    then do
+      Just failures <- readFailures
+        | Nothing => pure filtered
+      pure (filterByPaths failures [] filtered)
+    else pure filtered
+  baseReporter <- makeReporter cfg
+  reporter <- if cfg.jobs > 0
+    then threadSafeReporter baseReporter
+    else pure baseReporter
   abortRef <- newIORef False
-  evalForest cfg abortRef [] (applyFilters cfg trees) 0
+  reporter.onEvent SuiteStarted
+  r <- if cfg.jobs > 0
+    then evalParallel reporter cfg rerunFiltered
+    else evalForest reporter cfg abortRef [] rerunFiltered 0
+  reporter.onEvent (SuiteDone (fst r))
+  pure r
 
 ||| Run a spec suite with custom configuration and return the summary.
 export
@@ -162,10 +242,7 @@ export
 runSpecWith : RunConfig -> Spec () () -> IO ()
 runSpecWith cfg spec = do
   (summary, reports) <- runWithConfig cfg (getSpecTrees spec)
-  printSummary cfg summary
-  case cfg.junitOutput of
-    Just path => writeJUnitXml path (reports <>> [])
-    Nothing   => pure ()
+  writeFailures (failedPaths reports)
   when (summary.failed > 0) exitFailure
 
 ||| Run a spec suite, print colored results, exit with code 1 if any test failed.

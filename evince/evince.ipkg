@@ -1,5 +1,5 @@
 package evince
-version = 0.1.0
+version = 0.5.0
 authors = "Alexandr Chigrinets"
 -- maintainers =
 -- license =
@@ -24,9 +24,13 @@ modules = Evince
         , Evince.Diff
         , Evince.Expectations
         , Evince.Hooks
+        , Evince.Parallel
         , Evince.Random
         , Evince.Report
+        , Evince.Reporter
+        , Evince.Rerun
         , Evince.Spec
+        , Evince.SrcLoc
         , Evince.Reporter.Console
         , Evince.Reporter.JUnit
         , Evince.Runner

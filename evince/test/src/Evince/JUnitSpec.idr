@@ -6,13 +6,13 @@ import Evince.Report
 import Evince.Reporter.JUnit
 
 passedReport : TestReport
-passedReport = MkTestReport ["Suite", "passes"] (Passed 3000000)
+passedReport = MkTestReport ["Suite", "passes"] Nothing (Passed 3000000)
 
 failedReport : TestReport
-failedReport = MkTestReport ["Suite", "fails"] (Failed (Reason "boom") 1000000)
+failedReport = MkTestReport ["Suite", "fails"] Nothing (Failed (Reason "boom") 1000000)
 
 skippedReport : TestReport
-skippedReport = MkTestReport ["Suite", "skipped"] (Skipped (Just "todo"))
+skippedReport = MkTestReport ["Suite", "skipped"] Nothing (Skipped (Just "todo"))
 
 export
 junitSpec : Spec () ()
@@ -38,13 +38,23 @@ junitSpec = describe "JUnit XML" $ do
       renderXml [skippedReport] `mustSatisfy` (isInfixOf "<skipped message=\"todo\"/>")
 
     it "escapes special characters in test names" $ do
-      let report = MkTestReport ["A&B", "x < y"] (Passed 0)
+      let report = MkTestReport ["A&B", "x < y"] Nothing (Passed 0)
       let xml = renderXml [report]
       xml `mustSatisfy` (isInfixOf "classname=\"A&amp;B\"")
       xml `mustSatisfy` (isInfixOf "name=\"x &lt; y\"")
 
     it "uses dot-joined describe path as classname" $ do
-      let report = MkTestReport ["Outer", "Inner", "test name"] (Passed 0)
+      let report = MkTestReport ["Outer", "Inner", "test name"] Nothing (Passed 0)
       let xml = renderXml [report]
       xml `mustSatisfy` (isInfixOf "classname=\"Outer.Inner\"")
       xml `mustSatisfy` (isInfixOf "name=\"test name\"")
+
+    it "includes file and line when SrcLoc is present" $ do
+      let loc = MkSrcLoc "Test/Module" 9 0
+      let report = MkTestReport ["Suite", "located"] (Just loc) (Passed 0)
+      let xml = renderXml [report]
+      xml `mustSatisfy` (isInfixOf "file=\"Test/Module\"")
+      xml `mustSatisfy` (isInfixOf "line=\"10\"")
+
+    it "omits file and line when SrcLoc is absent" $
+      renderXml [passedReport] `mustNotSatisfy` (isInfixOf "file=")

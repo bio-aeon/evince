@@ -12,6 +12,7 @@ applyArg : RunConfig -> String -> RunConfig
 applyArg cfg "--fail-fast"  = { failFast  := True } cfg
 applyArg cfg "--randomize"  = { randomize := True } cfg
 applyArg cfg "--times"      = { showTiming := True } cfg
+applyArg cfg "--rerun"      = { rerun := True } cfg
 applyArg cfg arg =
   let (key, rest) = break (== '=') arg
       val = substr 1 (length rest) rest
@@ -21,6 +22,9 @@ applyArg cfg arg =
        "--skip"  => { skip  := Just val } cfg
        "--seed"  => { seed  := parseNat val } cfg
        "--junit" => { junitOutput := Just val } cfg
+       "--jobs"  => case parseNat val of
+                      Just j  => { jobs := j } cfg
+                      Nothing => cfg
        _         => cfg
 
 ||| Parse command-line arguments into a RunConfig.

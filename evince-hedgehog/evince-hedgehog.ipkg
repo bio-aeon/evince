@@ -1,5 +1,5 @@
 package evince-hedgehog
-version = 0.1.0
+version = 0.5.0
 authors = "Alexandr Chigrinets"
 brief = "Hedgehog property testing bridge for evince"
 

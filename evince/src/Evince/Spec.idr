@@ -1,6 +1,10 @@
 module Evince.Spec
 
+import Language.Reflection
+import Language.Reflection.TTImp
 import Evince.Core
+
+%language ElabReflection
 
 ||| Group related specs under a label.
 export
@@ -15,22 +19,41 @@ context = describe
 ||| Define a test case with pure expectations.
 export
 it : String -> TestResult () -> Spec a ()
-it label result = MkSpec [< It label (\_ => pure result)] ()
+it label result = MkSpec [< It label Nothing (\_ => pure result)] ()
 
 ||| Define a test case with IO-based expectations.
 export
 itIO : String -> IO (TestResult ()) -> Spec a ()
-itIO label action = MkSpec [< It label (\_ => action)] ()
+itIO label action = MkSpec [< It label Nothing (\_ => action)] ()
 
 ||| Define a test case that receives the resource.
 export
 itWith : String -> (a -> TestResult ()) -> Spec a ()
-itWith label f = MkSpec [< It label (\res => pure (f res))] ()
+itWith label f = MkSpec [< It label Nothing (\res => pure (f res))] ()
 
 ||| Define an IO test case that receives the resource.
 export
 itIOWith : String -> (a -> IO (TestResult ())) -> Spec a ()
-itIOWith label f = MkSpec [< It label f] ()
+itIOWith label f = MkSpec [< It label Nothing f] ()
+
+||| Define a test with source location captured at the call site.
+||| Pass a dummy quasiquoted value as the first argument:
+|||   itLoc `(()) "test name" $ expectation
+export
+%macro
+itLoc : TTImp -> String -> TestResult () -> Elab (Spec a ())
+itLoc t label result = do
+  let loc = fcToSrcLoc (getFC t)
+  pure $ MkSpec [< It label (Just loc) (\_ => pure result)] ()
+
+||| Define an IO test with source location captured at the call site.
+|||   itIOLoc `(()) "test name" $ ioAction
+export
+%macro
+itIOLoc : TTImp -> String -> IO (TestResult ()) -> Elab (Spec a ())
+itIOLoc t label action = do
+  let loc = fcToSrcLoc (getFC t)
+  pure $ MkSpec [< It label (Just loc) (\_ => action)] ()
 
 ||| Mark a test as pending — the body is ignored and not executed.
 export
@@ -50,7 +73,7 @@ xcontext = xdescribe
 ||| Focus a test — when any focused specs exist, only focused ones run.
 export
 fit : String -> TestResult () -> Spec a ()
-fit label result = MkSpec [< Focused (It label (\_ => pure result))] ()
+fit label result = MkSpec [< Focused (It label Nothing (\_ => pure result))] ()
 
 ||| Focus an entire group.
 export

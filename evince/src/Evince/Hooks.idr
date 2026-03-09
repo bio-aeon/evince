@@ -2,13 +2,14 @@ module Evince.Hooks
 
 import Data.IORef
 import Data.SnocList
+import System.Concurrency
 import Evince.Core
 
 -- Transform every It node's test action. Most general tree walker:
 -- changes resource type and wraps the action in one pass.
 mutual
   mapTree : ((a -> IO (TestResult ())) -> b -> IO (TestResult ())) -> SpecTree a -> SpecTree b
-  mapTree f (It label test) = It label (f test)
+  mapTree f (It label loc test) = It label loc (f test)
   mapTree f (Describe label children) = Describe label (mapTrees f children)
   mapTree f (Focused t) = Focused (mapTree f t)
   mapTree f (WithCleanup cleanup children) = WithCleanup cleanup (mapTrees f children)
@@ -46,9 +47,12 @@ export
 beforeAll : IO () -> Spec a () -> Spec a ()
 beforeAll setup body =
   let ref = unsafePerformIO (newIORef False)
+      mtx = unsafePerformIO makeMutex
       wrappedSetup = do
+        mutexAcquire mtx
         done <- readIORef ref
         unless done $ do setup; writeIORef ref True
+        mutexRelease mtx
       trees = mapTrees (\test, res => wrappedSetup >> test res) (getSpecTrees body)
   in MkSpec (Lin <>< trees) ()
 
@@ -86,11 +90,15 @@ export
 beforeAllWith : (outer -> IO inner) -> Spec inner () -> Spec outer ()
 beforeAllWith f body =
   let ref : IORef (Maybe inner) = unsafePerformIO (newIORef Nothing)
+      mtx = unsafePerformIO makeMutex
       cachedF = \o => do
+        mutexAcquire mtx
         cached <- readIORef ref
-        case cached of
+        val <- case cached of
           Just val => pure val
           Nothing => do val <- f o; writeIORef ref (Just val); pure val
+        mutexRelease mtx
+        pure val
       trees = mapTrees (\test, o => cachedF o >>= test) (getSpecTrees body)
   in MkSpec (Lin <>< trees) ()
 

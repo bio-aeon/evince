@@ -9,11 +9,12 @@ data TestOutcome
   | Failed FailureInfo Integer
   | Skipped (Maybe String)
 
-||| A completed test with its describe path and outcome.
+||| A completed test with its describe path, source location, and outcome.
 public export
 record TestReport where
   constructor MkTestReport
   path    : List String
+  loc     : Maybe SrcLoc
   outcome : TestOutcome
 
 ||| Convert nanoseconds to "S.MMMMs" (no unit suffix). Shared by reporters.
