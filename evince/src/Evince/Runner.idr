@@ -19,62 +19,49 @@ hasFocused (Describe _ children :: rest) = hasFocused children || hasFocused res
 hasFocused (WithCleanup _ children :: rest) = hasFocused children || hasFocused rest
 hasFocused (_ :: rest) = hasFocused rest
 
-filterFocused : List (SpecTree a) -> List (SpecTree a)
-filterFocused [] = []
-filterFocused (Focused t :: rest) = t :: filterFocused rest
-filterFocused (Describe label children :: rest) =
-  let filtered = filterFocused children
-  in case filtered of
-       [] => filterFocused rest
-       _  => Describe label filtered :: filterFocused rest
-filterFocused (WithCleanup cleanup children :: rest) =
-  let filtered = filterFocused children
-  in case filtered of
-       [] => filterFocused rest
-       _  => WithCleanup cleanup filtered :: filterFocused rest
-filterFocused (_ :: rest) = filterFocused rest
+mutual
+  filterFocused : List (SpecTree a) -> List (SpecTree a)
+  filterFocused [] = []
+  filterFocused (Focused t :: rest) = t :: filterFocused rest
+  filterFocused (Describe label children :: rest) =
+    focusedInto (Describe label) children (filterFocused rest)
+  filterFocused (WithCleanup cleanup children :: rest) =
+    focusedInto (WithCleanup cleanup) children (filterFocused rest)
+  filterFocused (_ :: rest) = filterFocused rest
+
+  focusedInto : (List (SpecTree a) -> SpecTree a) -> List (SpecTree a) -> List (SpecTree a) -> List (SpecTree a)
+  focusedInto wrap children rest =
+    case filterFocused children of
+      [] => rest
+      filtered => wrap filtered :: rest
 
 applyFocus : List (SpecTree a) -> List (SpecTree a)
 applyFocus trees = if hasFocused trees then filterFocused trees else trees
 
--- Match/skip filtering: keep or drop tests whose describe path contains the pattern.
-filterByMatch : String -> List (SpecTree a) -> List (SpecTree a)
-filterByMatch pat [] = []
-filterByMatch pat (It label test :: rest) =
-  if isInfixOf pat label
-    then It label test :: filterByMatch pat rest
-    else filterByMatch pat rest
-filterByMatch pat (Describe label children :: rest) =
-  if isInfixOf pat label
-    then Describe label children :: filterByMatch pat rest
-    else let filtered = filterByMatch pat children
+filterByLabel : (keep : String -> Bool) -> List (SpecTree a) -> List (SpecTree a)
+filterByLabel keep [] = []
+filterByLabel keep (It label test :: rest) =
+  if keep label
+    then It label test :: filterByLabel keep rest
+    else filterByLabel keep rest
+filterByLabel keep (Describe label children :: rest) =
+  if keep label
+    then Describe label children :: filterByLabel keep rest
+    else let filtered = filterByLabel keep children
          in case filtered of
-              [] => filterByMatch pat rest
-              _  => Describe label filtered :: filterByMatch pat rest
-filterByMatch pat (Focused t :: rest) =
-  case filterByMatch pat [t] of
-    [t'] => Focused t' :: filterByMatch pat rest
-    _    => filterByMatch pat rest
-filterByMatch pat (t :: rest) = t :: filterByMatch pat rest
+              [] => filterByLabel keep rest
+              _  => Describe label filtered :: filterByLabel keep rest
+filterByLabel keep (Focused t :: rest) =
+  case filterByLabel keep [t] of
+    [t'] => Focused t' :: filterByLabel keep rest
+    _    => filterByLabel keep rest
+filterByLabel keep (t :: rest) = t :: filterByLabel keep rest
+
+filterByMatch : String -> List (SpecTree a) -> List (SpecTree a)
+filterByMatch pat = filterByLabel (isInfixOf pat)
 
 filterBySkip : String -> List (SpecTree a) -> List (SpecTree a)
-filterBySkip pat [] = []
-filterBySkip pat (It label test :: rest) =
-  if isInfixOf pat label
-    then filterBySkip pat rest
-    else It label test :: filterBySkip pat rest
-filterBySkip pat (Describe label children :: rest) =
-  if isInfixOf pat label
-    then filterBySkip pat rest
-    else let filtered = filterBySkip pat children
-         in case filtered of
-              [] => filterBySkip pat rest
-              _  => Describe label filtered :: filterBySkip pat rest
-filterBySkip pat (Focused t :: rest) =
-  case filterBySkip pat [t] of
-    [t'] => Focused t' :: filterBySkip pat rest
-    _    => filterBySkip pat rest
-filterBySkip pat (t :: rest) = t :: filterBySkip pat rest
+filterBySkip pat = filterByLabel (not . isInfixOf pat)
 
 shuffleTrees : Nat -> List (SpecTree a) -> List (SpecTree a)
 shuffleTrees seed [] = []

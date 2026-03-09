@@ -3,6 +3,7 @@ module Evince.Reporter.Console
 import Data.List
 import Data.String
 import Evince.Core
+import Evince.Diff
 import Evince.Report
 
 -- ANSI escape sequences
@@ -54,8 +55,15 @@ printTestResult cfg label (Fail info) elapsed level = do
   let timing = if cfg.showTiming then " (" ++ formatDuration elapsed ++ ")" else ""
   putStrLn $ indent level ++ red ("✗ " ++ label) ++ timing
   let detailIndent = indent (S level)
-  for_ (lines (show info)) $ \line =>
-    putStrLn $ detailIndent ++ red line
+  case failureDiff info of
+    Just (reason, diffs) => do
+      putStrLn $ detailIndent ++ red reason
+      for_ diffs $ \d => putStrLn $ detailIndent ++ case d of
+        LineSame _    => renderLineDiffPlain d
+        LineRemoved _ => red (renderLineDiffPlain d)
+        LineAdded _   => green (renderLineDiffPlain d)
+    Nothing => for_ (lines (show info)) $ \line =>
+      putStrLn $ detailIndent ++ red line
 printTestResult cfg label (Skip reason) _ level =
   printPending label reason level
 

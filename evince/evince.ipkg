@@ -14,12 +14,14 @@ brief = "A testing framework for Idris 2"
 
 -- packages to add to search path
 depends = contrib
+       , pretty-show
 
 -- modules to install
 modules = Evince
         , Evince.App
         , Evince.Config
         , Evince.Core
+        , Evince.Diff
         , Evince.Expectations
         , Evince.Hooks
         , Evince.Random

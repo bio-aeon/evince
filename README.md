@@ -18,8 +18,8 @@ Add evince as a dependency in your `pack.toml`:
 [custom.all.evince]
 type   = "github"
 url    = "https://github.com/bio-aeon/evince"
-commit = "latest"
-ipkg   = "evince.ipkg"
+commit = "latest:main"
+ipkg   = "evince/evince.ipkg"
 ```
 
 Then add `evince` to your test package's `depends`:
@@ -268,6 +268,73 @@ Pass `--junit=report.xml` to produce a JUnit XML report alongside console output
 
 The output follows the standard JUnit XML format, compatible with GitHub Actions,
 Jenkins, GitLab CI, and other CI systems.
+
+## Structural Diffs
+
+When `mustBe` or `mustEqual` fail on complex values (records, nested constructors),
+evince shows a colored structural diff instead of raw expected/actual output:
+
+```
+  ✗ returns the updated user
+    not equal
+      MkUser {
+          firstName =
+            "Alice"
+        , lastName =
+            "Wonderland"
+        , age =
+    -       30
+    +       25
+        , email =
+            "alice@example.com"
+      }
+```
+
+For simple one-liner values, the diff shows the full expected/actual as removed/added lines.
+If a value can't be structurally parsed, evince falls back to the standard format.
+
+## Property Testing with Hedgehog
+
+The `evince-hedgehog` package integrates [idris2-hedgehog](https://github.com/stefan-hoeck/idris2-hedgehog)
+property tests into evince's spec tree.
+
+Add `evince-hedgehog` to your `pack.toml`:
+
+```toml
+[custom.all.evince-hedgehog]
+type   = "github"
+url    = "https://github.com/bio-aeon/evince"
+commit = "latest:main"
+ipkg   = "evince-hedgehog/evince-hedgehog.ipkg"
+```
+
+Then add it to your test package's `depends`:
+
+```
+depends = evince, evince-hedgehog, hedgehog
+```
+
+```idris
+import Evince
+import Evince.Hedgehog
+import Hedgehog
+
+spec : Spec () ()
+spec = describe "Arithmetic" $ do
+  itProp "addition is commutative" $ do
+    x <- forAll $ int (linear (-100) 100)
+    y <- forAll $ int (linear (-100) 100)
+    diff (x + y) (==) (y + x)
+
+  itProp1 "zero is identity" $ do
+    diff (0 + 0) (==) (the Int 0)
+```
+
+| Function  | Description                                  |
+|-----------|----------------------------------------------|
+| `prop`    | Embed a hedgehog `Property`                  |
+| `itProp`  | Embed a `PropertyT ()` (wraps in `property`) |
+| `itProp1` | Embed a single-run property                  |
 
 ## Output
 

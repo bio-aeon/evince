@@ -1,0 +1,11 @@
+package evince-hedgehog
+version = 0.1.0
+authors = "Alexandr Chigrinets"
+brief = "Hedgehog property testing bridge for evince"
+
+depends = evince
+        , hedgehog
+
+modules = Evince.Hedgehog
+
+sourcedir = "src"

@@ -4,6 +4,7 @@ import Data.List
 import Data.String
 import System.File
 import Evince.Core
+import Evince.Diff
 import Evince.Report
 
 escape : String -> String
@@ -37,9 +38,13 @@ renderTestCase report =
          "    <testcase name=\"" ++ name ++ "\" classname=\"" ++ cn
            ++ "\" time=\"" ++ nanosToSeconds elapsed ++ "\"/>\n"
        Failed info elapsed =>
-         "    <testcase name=\"" ++ name ++ "\" classname=\"" ++ cn
+         let msg = case failureDiff info of
+               Just (reason, diffs) =>
+                 reason ++ "\n" ++ unlines (map renderLineDiffPlain diffs)
+               Nothing => show info
+         in "    <testcase name=\"" ++ name ++ "\" classname=\"" ++ cn
            ++ "\" time=\"" ++ nanosToSeconds elapsed ++ "\">\n"
-           ++ "      <failure message=\"" ++ escape (show info) ++ "\"/>\n"
+           ++ "      <failure message=\"" ++ escape msg ++ "\"/>\n"
            ++ "    </testcase>\n"
        Skipped reason =>
          "    <testcase name=\"" ++ name ++ "\" classname=\"" ++ cn ++ "\">\n"

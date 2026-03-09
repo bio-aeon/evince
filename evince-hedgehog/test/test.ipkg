@@ -1,0 +1,11 @@
+package evince-hedgehog-test
+version = 0.1.0
+authors = "Alexandr Chigrinets"
+
+depends = evince
+        , evince-hedgehog
+        , hedgehog
+
+main = Main
+executable = "evince-hedgehog-test"
+sourcedir = "src"

@@ -1,10 +1,21 @@
 [custom.all.evince]
 type = "local"
-path = "."
+path = "evince"
 ipkg = "evince.ipkg"
 test = "test/test.ipkg"
 
 [custom.all.evince-test]
 type = "local"
-path = "test"
+path = "evince/test"
+ipkg = "test.ipkg"
+
+[custom.all.evince-hedgehog]
+type = "local"
+path = "evince-hedgehog"
+ipkg = "evince-hedgehog.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.evince-hedgehog-test]
+type = "local"
+path = "evince-hedgehog/test"
 ipkg = "test.ipkg"
