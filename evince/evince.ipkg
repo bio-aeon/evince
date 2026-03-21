@@ -2,7 +2,7 @@ package evince
 version = 0.5.0
 authors = "Alexandr Chigrinets"
 -- maintainers =
--- license =
+license = "MIT"
 brief = "A testing framework for Idris 2"
 -- readme =
 -- homepage =
