@@ -1,6 +1,7 @@
 package evince-hedgehog-test
 version = 0.1.0
 authors = "Alexandr Chigrinets"
+license = "MIT"
 
 depends = evince
         , evince-hedgehog

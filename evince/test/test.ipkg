@@ -2,7 +2,7 @@ package evince-test
 version = 0.1.0
 authors = "Alexandr Chigrinets"
 -- maintainers =
--- license =
+license = "MIT"
 -- brief =
 -- readme =
 -- homepage =
