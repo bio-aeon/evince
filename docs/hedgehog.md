@@ -5,20 +5,12 @@ property tests into evince's spec tree.
 
 ## Installation
 
-Add `evince-hedgehog` to your `pack.toml`:
-
-```toml
-[custom.all.evince-hedgehog]
-type   = "github"
-url    = "https://github.com/bio-aeon/evince"
-commit = "latest:main"
-ipkg   = "evince-hedgehog/evince-hedgehog.ipkg"
-```
-
-Then add it to your test package's `depends`:
+`evince-hedgehog` is available in the
+[pack](https://github.com/stefan-hoeck/idris2-pack) package collection.
+Add it to your test package's `depends`:
 
 ```
-depends = evince, evince-hedgehog, hedgehog
+depends = evince, evince-hedgehog
 ```
 
 ## Usage

@@ -12,17 +12,8 @@ decidable equality.
 
 ## Installation
 
-Add evince as a dependency in your `pack.toml`:
-
-```toml
-[custom.all.evince]
-type   = "github"
-url    = "https://github.com/bio-aeon/evince"
-commit = "latest:main"
-ipkg   = "evince/evince.ipkg"
-```
-
-Then add `evince` to your test package's `depends`:
+Evince is available in the [pack](https://github.com/stefan-hoeck/idris2-pack)
+package collection. Add `evince` to your test package's `depends`:
 
 ```
 depends = evince
