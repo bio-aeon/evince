@@ -47,6 +47,23 @@ hooksSpec = describe "Hooks" $ do
       count <- readIORef ref
       pure $ count `mustBe` 1
 
+    itIO "runs setup exactly once across parallel groups" $ do
+      ref <- newIORef (the Nat 0)
+      let cfg = { jobs := 4 } defaultConfig
+      _ <- runSpecWithSummaryAndConfig cfg $ beforeAll (modifyIORef ref (+ 1)) $ do
+        describe "group 1" $ do
+          it "a" $ 1 `mustBe` 1
+          it "b" $ 2 `mustBe` 2
+        describe "group 2" $ do
+          it "c" $ 3 `mustBe` 3
+          it "d" $ 4 `mustBe` 4
+        describe "group 3" $ do
+          it "e" $ 5 `mustBe` 5
+        describe "group 4" $ do
+          it "f" $ 6 `mustBe` 6
+      count <- readIORef ref
+      pure $ count `mustBe` 1
+
   describe "afterAll" $ do
     itIO "runs cleanup after all tests finish" $ do
       ref <- newIORef False
@@ -97,5 +114,23 @@ hooksSpec = describe "Hooks" $ do
         beforeAllWith (\n => do modifyIORef counter (+ 1); pure (show n)) $ do
           itIOWith "a" $ \s => pure $ s `mustBe` "5"
           itIOWith "b" $ \s => pure $ s `mustBe` "5"
+      count <- readIORef counter
+      pure $ count `mustBe` 1
+
+    itIO "transforms resource exactly once across parallel groups" $ do
+      counter <- newIORef (the Nat 0)
+      let cfg = { jobs := 4 } defaultConfig
+      _ <- runSpecWithSummaryAndConfig cfg $
+        provide (pure (the Nat 5)) $
+        beforeAllWith (\n => do modifyIORef counter (+ 1); pure (show n)) $ do
+          describe "group 1" $ do
+            itIOWith "a" $ \s => pure $ s `mustBe` "5"
+            itIOWith "b" $ \s => pure $ s `mustBe` "5"
+          describe "group 2" $ do
+            itIOWith "c" $ \s => pure $ s `mustBe` "5"
+          describe "group 3" $ do
+            itIOWith "d" $ \s => pure $ s `mustBe` "5"
+          describe "group 4" $ do
+            itIOWith "e" $ \s => pure $ s `mustBe` "5"
       count <- readIORef counter
       pure $ count `mustBe` 1
