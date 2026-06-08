@@ -24,7 +24,6 @@ modules = Evince
         , Evince.Diff
         , Evince.Expectations
         , Evince.Hooks
-        , Evince.Parallel
         , Evince.Random
         , Evince.Report
         , Evince.Reporter

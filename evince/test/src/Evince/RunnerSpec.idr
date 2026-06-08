@@ -132,35 +132,3 @@ runnerSpec = describe "Runner" $ do
       pure $ do
         s1.passed `mustBe` 3
         s2.passed `mustBe` 3
-
-  describe "parallel execution" $ do
-    itIO "runs groups concurrently and collects all results" $ do
-      let cfg = { jobs := 2 } defaultConfig
-      s <- runSpecWithSummaryAndConfig cfg $ do
-        describe "group 1" $ do
-          it "a" $ 1 `mustBe` 1
-          it "b" $ 2 `mustBe` 2
-        describe "group 2" $ do
-          it "c" $ 3 `mustBe` 3
-          it "d" $ 4 `mustBe` 4
-      pure $ s.passed `mustBe` 4
-
-    itIO "parallel + fail-fast stops after first failure" $ do
-      let cfg = { jobs := 2, failFast := True } defaultConfig
-      s <- runSpecWithSummaryAndConfig cfg $ do
-        describe "group 1" $ do
-          it "fail" $ 1 `mustBe` 2
-        describe "group 2" $ do
-          it "pass" $ 1 `mustBe` 1
-      pure $ (s.failed + s.passed) `mustSatisfy` (> 0)
-
-    itIO "parallel + match filters correctly" $ do
-      let cfg = { jobs := 2, match := Just "target" } defaultConfig
-      s <- runSpecWithSummaryAndConfig cfg $ do
-        describe "group 1" $ do
-          it "target a" $ 1 `mustBe` 1
-        describe "group 2" $ do
-          it "other" $ 2 `mustBe` 2
-          it "target b" $ 3 `mustBe` 3
-      pure $ s.passed `mustBe` 2
-
