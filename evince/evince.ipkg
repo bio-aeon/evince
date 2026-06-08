@@ -31,6 +31,7 @@ modules = Evince
         , Evince.Rerun
         , Evince.Spec
         , Evince.SrcLoc
+        , Evince.Synchronized
         , Evince.Reporter.Console
         , Evince.Reporter.JUnit
         , Evince.Runner

@@ -10,7 +10,7 @@ hasAdded : String -> List LineDiff -> Bool
 hasAdded s = any (== LineAdded s)
 
 export
-diffSpec : Spec () ()
+diffSpec : Spec IO () ()
 diffSpec = describe "Structural diffs" $ do
   describe "structuralDiff" $ do
     it "returns Nothing when both values are identical" $

@@ -13,14 +13,14 @@ data Event
   | PendingTest String (Maybe String) Nat
   | SuiteDone Summary
 
-||| A reporter consumes events emitted by the runner.
+||| A reporter consumes events emitted by the runner, in the runner's monad `m`.
 public export
-record Reporter where
+record Reporter (m : Type -> Type) where
   constructor MkReporter
-  onEvent : Event -> IO ()
+  onEvent : Event -> m ()
 
 ||| Combine multiple reporters into one. Each event is dispatched
 ||| to all reporters in order.
 export
-combineReporters : List Reporter -> Reporter
+combineReporters : Applicative m => List (Reporter m) -> Reporter m
 combineReporters rs = MkReporter $ \e => for_ rs $ \r => r.onEvent e

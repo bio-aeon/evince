@@ -93,10 +93,10 @@ writeJUnitXml filepath reports = do
 ||| Create a JUnit XML reporter that accumulates test results and writes
 ||| them to the given file path when the suite completes.
 export
-junitReporter : String -> IO Reporter
+junitReporter : HasIO m => String -> m (Reporter m)
 junitReporter filepath = do
   ref <- newIORef {a = SnocList TestReport} [<]
-  pure $ MkReporter $ \case
+  pure $ MkReporter $ \e => liftIO $ case e of
     TestDone report _ => modifyIORef ref (:< report)
     SuiteDone _       => do
       reports <- readIORef ref

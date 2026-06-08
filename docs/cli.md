@@ -55,7 +55,7 @@ Run top-level `describe` groups concurrently with `--jobs=N`:
 ```
 
 Tests within each group still run sequentially (preserving hook semantics).
-`beforeAll` and `beforeAllWith` are thread-safe — setup runs exactly once even
+`beforeAll` and `beforeAllWith` are thread-safe - setup runs exactly once even
 when multiple threads reach it concurrently.
 
 Requires the Chez Scheme backend.

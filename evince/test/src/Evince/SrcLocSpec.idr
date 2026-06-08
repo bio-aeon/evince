@@ -5,19 +5,19 @@ import Language.Reflection
 
 %language ElabReflection
 
-extractLoc : Spec () () -> Maybe SrcLoc
+extractLoc : Spec IO () () -> Maybe SrcLoc
 extractLoc spec = case getSpecTrees spec of
   [It _ loc _] => loc
   _ => Nothing
 
-locSpec : Spec () ()
+locSpec : Spec IO () ()
 locSpec = itLoc `(()) "test" $ 1 `mustBe` 1
 
-noLocSpec : Spec () ()
+noLocSpec : Spec IO () ()
 noLocSpec = it "test" $ 1 `mustBe` 1
 
 export
-srcLocSpec : Spec () ()
+srcLocSpec : Spec IO () ()
 srcLocSpec = describe "source locations" $ do
   describe "itLoc" $ do
     it "captures a source location" $

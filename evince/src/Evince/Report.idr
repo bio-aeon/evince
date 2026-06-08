@@ -17,7 +17,7 @@ record TestReport where
   loc     : Maybe SrcLoc
   outcome : TestOutcome
 
-||| Convert nanoseconds to "S.MMMMs" (no unit suffix). Shared by reporters.
+||| Convert nanoseconds to "S.MMMMs" (no unit suffix).
 export
 nanosToSeconds : Integer -> String
 nanosToSeconds nanos =

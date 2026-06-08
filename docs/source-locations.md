@@ -32,7 +32,7 @@ quasiquoted unit value `` `(()) ``. The compiler quotes this at the call site,
 embedding the call-site's `FC` (File Context) in the TTImp node. The macro
 extracts the FC via `getFC` and converts it to a `SrcLoc` with `fcToSrcLoc`.
 
-This is the only reliable way to capture call-site locations in Idris 2 — a
+This is the only reliable way to capture call-site locations in Idris 2 - a
 zero-arg macro inside a do-block sees `EmptyFC` because the goal type comes from
 `>>=` chain desugaring, not from the source.
 

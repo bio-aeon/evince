@@ -9,7 +9,7 @@ import Language.Reflection.TTImp
 %language ElabReflection
 
 ||| A source file location (file path, line, column). Line and column
-||| are 0-indexed (matching Idris 2's FC representation).
+||| are 0-indexed.
 public export
 record SrcLoc where
   constructor MkSrcLoc

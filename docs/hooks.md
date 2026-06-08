@@ -30,7 +30,7 @@ spec = describe "Database" $
 | `afterAll`  | Run an IO action once after all tests       |
 
 `beforeAll`/`afterAll` run once for the entire group rather than per-test.
-`beforeAll` is thread-safe — under parallel execution, the setup runs exactly
+`beforeAll` is thread-safe - under parallel execution, the setup runs exactly
 once even when multiple threads reach it concurrently.
 
 ## Resource-Passing Hooks
@@ -45,7 +45,7 @@ These hooks thread a resource into tests, transforming the `Spec` resource type:
 | `afterWith`     | Run cleanup with access to the resource              |
 | `beforeAllWith` | Transform the resource type once (cached)            |
 
-`provide` is the most common entry point — it runs a setup action and makes the
+`provide` is the most common entry point - it runs a setup action and makes the
 result available to all tests in the group via `itWith`/`itIOWith`:
 
 ```idris
@@ -70,6 +70,6 @@ spec = describe "API" $
       pure $ resp.status `mustBe` 200
 ```
 
-`beforeAllWith` is like `beforeWith` but caches the result — the transformation
+`beforeAllWith` is like `beforeWith` but caches the result - the transformation
 runs once on the first test and subsequent tests reuse the cached value.
 Thread-safe under parallel execution.

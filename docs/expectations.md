@@ -11,7 +11,7 @@ Pure functions returning `TestResult ()` (or `IO (TestResult ())` for IO variant
 | `mustEqual`    | `Eq, Show`    | Boolean equality (fallback for `Double`) |
 | `mustNotEqual` | `Eq, Show`    | Boolean inequality                       |
 
-`mustBe` uses `DecEq` (decidable equality) — constructive proof that values are
+`mustBe` uses `DecEq` (decidable equality) - constructive proof that values are
 equal or not. This is idiomatic Idris 2. `mustEqual` exists as a fallback for
 types like `Double` that have `Eq` but not `DecEq`.
 
@@ -62,7 +62,7 @@ itIO "reads the config file" $
 
 | Function         | Constraint              | Description                                      |
 |------------------|-------------------------|--------------------------------------------------|
-| `tryApp`         | —                       | Run `App (err :: Init) a` as `IO (Either err a)` |
+| `tryApp`         | -                       | Run `App (err :: Init) a` as `IO (Either err a)` |
 | `mustError`      | `Show err`              | Passes if the `App` computation throws           |
 | `mustErrorWith`  | `Show err, DecEq err`   | Passes if the error matches the expected value   |
 

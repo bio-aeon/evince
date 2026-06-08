@@ -14,7 +14,7 @@ The `IO ()` variants print colored results and call `exitFailure` if any test
 fails. They also write `.evince-failures` for the rerun feature.
 
 The `IO Summary` variants return the summary without printing, exiting, or
-writing failure files — useful for meta-testing (testing your framework with
+writing failure files - useful for meta-testing (testing your framework with
 itself).
 
 ## Fail-Fast

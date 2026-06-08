@@ -8,7 +8,7 @@ isFail (Fail _) = True
 isFail _        = False
 
 export
-appSpec : Spec () ()
+appSpec : Spec IO () ()
 appSpec = describe "App bridge" $ do
   describe "tryApp" $ do
     itIO "returns Left on error" $ do

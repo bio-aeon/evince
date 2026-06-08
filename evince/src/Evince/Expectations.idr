@@ -7,7 +7,7 @@ import Evince.Core
 %default total
 
 ||| Passes if `actual` is decidably equal to `expected`. Uses `DecEq` for
-||| constructive equality — the primary assertion in evince.
+||| constructive equality - the primary assertion in evince.
 export
 mustBe : DecEq a => Show a => (actual : a) -> (expected : a) -> TestResult ()
 mustBe actual expected = case decEq actual expected of

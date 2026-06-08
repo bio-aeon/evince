@@ -3,7 +3,7 @@ module Evince.RunnerSpec
 import Evince
 
 export
-runnerSpec : Spec () ()
+runnerSpec : Spec IO () ()
 runnerSpec = describe "Runner" $ do
   describe "summary" $ do
     itIO "counts passing tests" $ do

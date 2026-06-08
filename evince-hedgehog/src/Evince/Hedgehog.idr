@@ -15,15 +15,15 @@ runProperty p = do
 
 ||| Embed a hedgehog Property as an evince test case.
 export
-prop : String -> Property -> Spec a ()
+prop : HasIO m => String -> Property -> Spec m a ()
 prop label p = itIO label (runProperty p)
 
 ||| Embed a PropertyT action (wraps in `property`).
 export
-itProp : String -> PropertyT () -> Spec a ()
+itProp : HasIO m => String -> PropertyT () -> Spec m a ()
 itProp label = prop label . property
 
 ||| Embed a single-run property (wraps in `property1`).
 export
-itProp1 : String -> PropertyT () -> Spec a ()
+itProp1 : HasIO m => String -> PropertyT () -> Spec m a ()
 itProp1 label = prop label . property1

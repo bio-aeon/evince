@@ -4,7 +4,7 @@ import Data.IORef
 import Evince
 
 export
-hooksSpec : Spec () ()
+hooksSpec : Spec IO () ()
 hooksSpec = describe "Hooks" $ do
   describe "before" $ do
     itIO "executes for each test" $ do
@@ -26,7 +26,7 @@ hooksSpec = describe "Hooks" $ do
 
   describe "around" $ do
     itIO "wraps each test with setup and teardown" $ do
-      ref <- newIORef (the (List String) [])
+      ref <- newIORef []
       let wrapper = \test => do
             modifyIORef ref ("setup" ::)
             r <- test
@@ -75,7 +75,7 @@ hooksSpec = describe "Hooks" $ do
 
   describe "provide" $ do
     itIO "threads resource into tests via itIOWith" $ do
-      ref <- newIORef (the (List Nat) [])
+      ref <- newIORef []
       s <- runSpecWithSummary $ provide (pure (the Nat 42)) $ do
         itIOWith "a" $ \n => do
           modifyIORef ref (n ::)
@@ -85,7 +85,7 @@ hooksSpec = describe "Hooks" $ do
 
   describe "beforeWith" $ do
     itIO "transforms resource type" $ do
-      ref <- newIORef (the (List String) [])
+      ref <- newIORef []
       s <- runSpecWithSummary $
         provide (pure (the Nat 10)) $
         beforeWith (\n => pure (show n)) $ do
@@ -97,7 +97,7 @@ hooksSpec = describe "Hooks" $ do
 
   describe "afterWith" $ do
     itIO "runs cleanup with access to resource" $ do
-      ref <- newIORef (the (List Nat) [])
+      ref <- newIORef []
       s <- runSpecWithSummary $
         provide (pure (the Nat 7)) $
         afterWith (\n => modifyIORef ref (n ::)) $ do

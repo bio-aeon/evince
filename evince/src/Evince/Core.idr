@@ -94,37 +94,38 @@ Monad TestResult where
   (Fail info)   >>= _ = Fail info
   (Skip reason) >>= _ = Skip reason
 
+-- `m` is the test-action monad.
 public export
-data SpecTree : Type -> Type where
-  Describe    : (label : String) -> (children : List (SpecTree a)) -> SpecTree a
-  It          : (label : String) -> (loc : Maybe SrcLoc) -> (test : a -> IO (TestResult ())) -> SpecTree a
-  Pending     : (label : String) -> (reason : Maybe String) -> SpecTree a
-  Focused     : SpecTree a -> SpecTree a
-  WithCleanup : (cleanup : IO ()) -> (children : List (SpecTree a)) -> SpecTree a
+data SpecTree : (m : Type -> Type) -> Type -> Type where
+  Describe    : (label : String) -> (children : List (SpecTree m a)) -> SpecTree m a
+  It          : (label : String) -> (loc : Maybe SrcLoc) -> (test : a -> m (TestResult ())) -> SpecTree m a
+  Pending     : (label : String) -> (reason : Maybe String) -> SpecTree m a
+  Focused     : SpecTree m a -> SpecTree m a
+  WithCleanup : (cleanup : m ()) -> (children : List (SpecTree m a)) -> SpecTree m a
 
 -- SnocList gives O(1) appending per describe/it in a do-block.
 -- Idris 2 resolves the correct monad (Spec vs TestResult) via
 -- type-directed elaboration based on the expected return type.
 public export
-data Spec : Type -> Type -> Type where
-  MkSpec : SnocList (SpecTree a) -> b -> Spec a b
+data Spec : (m : Type -> Type) -> Type -> Type -> Type where
+  MkSpec : SnocList (SpecTree m a) -> b -> Spec m a b
 
 export
-Functor (Spec a) where
+Functor (Spec m a) where
   map f (MkSpec trees x) = MkSpec trees (f x)
 
 export
-Applicative (Spec a) where
+Applicative (Spec m a) where
   pure x = MkSpec [<] x
   (MkSpec ts1 f) <*> (MkSpec ts2 x) = MkSpec (ts1 ++ ts2) (f x)
 
 export
-Monad (Spec a) where
+Monad (Spec m a) where
   (MkSpec ts1 x) >>= f = let (MkSpec ts2 y) = f x in MkSpec (ts1 ++ ts2) y
 
 ||| Extract the tree list from a completed spec.
 export
-getSpecTrees : Spec a () -> List (SpecTree a)
+getSpecTrees : Spec m a () -> List (SpecTree m a)
 getSpecTrees (MkSpec trees ()) = trees <>> []
 
 public export

@@ -81,8 +81,8 @@ printSummary cfg s = do
 
 ||| Create a console reporter that prints colored test results to stdout.
 export
-consoleReporter : RunConfig -> Reporter
-consoleReporter cfg = MkReporter $ \case
+consoleReporter : HasIO m => RunConfig -> Reporter m
+consoleReporter cfg = MkReporter $ \e => liftIO $ case e of
   SuiteStarted           => pure ()
   GroupStarted label lvl  => printDescribe label lvl
   GroupDone _             => pure ()

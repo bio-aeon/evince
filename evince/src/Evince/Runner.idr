@@ -5,10 +5,8 @@ import Data.List
 import Data.String
 import System
 import System.Clock
-import System.Concurrency
 import Evince.Config
 import Evince.Core
-import Evince.Parallel
 import Evince.Random
 import Evince.Report
 import Evince.Reporter
@@ -16,7 +14,7 @@ import Evince.Reporter.Console
 import Evince.Reporter.JUnit
 import Evince.Rerun
 
-hasFocused : List (SpecTree a) -> Bool
+hasFocused : List (SpecTree m a) -> Bool
 hasFocused [] = False
 hasFocused (Focused _ :: _) = True
 hasFocused (Describe _ children :: rest) = hasFocused children || hasFocused rest
@@ -24,7 +22,7 @@ hasFocused (WithCleanup _ children :: rest) = hasFocused children || hasFocused 
 hasFocused (_ :: rest) = hasFocused rest
 
 mutual
-  filterFocused : List (SpecTree a) -> List (SpecTree a)
+  filterFocused : List (SpecTree m a) -> List (SpecTree m a)
   filterFocused [] = []
   filterFocused (Focused t :: rest) = t :: filterFocused rest
   filterFocused (Describe label children :: rest) =
@@ -33,16 +31,16 @@ mutual
     focusedInto (WithCleanup cleanup) children (filterFocused rest)
   filterFocused (_ :: rest) = filterFocused rest
 
-  focusedInto : (List (SpecTree a) -> SpecTree a) -> List (SpecTree a) -> List (SpecTree a) -> List (SpecTree a)
+  focusedInto : (List (SpecTree m a) -> SpecTree m a) -> List (SpecTree m a) -> List (SpecTree m a) -> List (SpecTree m a)
   focusedInto wrap children rest =
     case filterFocused children of
       [] => rest
       filtered => wrap filtered :: rest
 
-applyFocus : List (SpecTree a) -> List (SpecTree a)
+applyFocus : List (SpecTree m a) -> List (SpecTree m a)
 applyFocus trees = if hasFocused trees then filterFocused trees else trees
 
-filterByLabel : (keep : String -> Bool) -> List (SpecTree a) -> List (SpecTree a)
+filterByLabel : (keep : String -> Bool) -> List (SpecTree m a) -> List (SpecTree m a)
 filterByLabel keep [] = []
 filterByLabel keep (It label loc test :: rest) =
   if keep label
@@ -61,16 +59,16 @@ filterByLabel keep (Focused t :: rest) =
     _    => filterByLabel keep rest
 filterByLabel keep (t :: rest) = t :: filterByLabel keep rest
 
-filterByMatch : String -> List (SpecTree a) -> List (SpecTree a)
+filterByMatch : String -> List (SpecTree m a) -> List (SpecTree m a)
 filterByMatch pat = filterByLabel (isInfixOf pat)
 
-filterBySkip : String -> List (SpecTree a) -> List (SpecTree a)
+filterBySkip : String -> List (SpecTree m a) -> List (SpecTree m a)
 filterBySkip pat = filterByLabel (not . isInfixOf pat)
 
 joinPath : List String -> String
 joinPath = concat . intersperse "."
 
-filterByPaths : List String -> List String -> List (SpecTree a) -> List (SpecTree a)
+filterByPaths : List String -> List String -> List (SpecTree m a) -> List (SpecTree m a)
 filterByPaths _ _ [] = []
 filterByPaths paths ctx (It label loc test :: rest) =
   if joinPath (ctx ++ [label]) `elem` paths
@@ -87,17 +85,17 @@ filterByPaths paths ctx (Focused t :: rest) =
     _    => filterByPaths paths ctx rest
 filterByPaths paths ctx (t :: rest) = t :: filterByPaths paths ctx rest
 
-shuffleTrees : Nat -> List (SpecTree a) -> List (SpecTree a)
+shuffleTrees : Nat -> List (SpecTree m a) -> List (SpecTree m a)
 shuffleTrees seed [] = []
 shuffleTrees seed trees = shuffle seed (map go trees)
   where
-    go : SpecTree a -> SpecTree a
+    go : SpecTree m a -> SpecTree m a
     go (Describe label children) = Describe label (shuffleTrees seed children)
     go (WithCleanup cleanup children) = WithCleanup cleanup (shuffleTrees seed children)
     go (Focused t) = Focused (go t)
     go t = t
 
-applyFilters : RunConfig -> List (SpecTree a) -> List (SpecTree a)
+applyFilters : RunConfig -> List (SpecTree m a) -> List (SpecTree m a)
 applyFilters cfg trees =
   let t1 = applyFocus trees
       t2 = maybe t1 (\p => filterByMatch p t1) cfg.match
@@ -117,20 +115,20 @@ mergeResults : EvalResult -> EvalResult -> EvalResult
 mergeResults (s1, r1) (s2, r2) = (s1 <+> s2, r1 ++ r2)
 
 mutual
-  evalTree : Reporter -> RunConfig -> IORef Bool -> List String -> SpecTree () -> Nat -> IO EvalResult
+  evalTree : HasIO m => Reporter m -> RunConfig -> IORef Bool -> List String -> SpecTree m () -> Nat -> m EvalResult
   evalTree reporter cfg abortRef path (Describe label children) level = do
     reporter.onEvent (GroupStarted label level)
     r <- evalForest reporter cfg abortRef (path ++ [label]) children (S level)
     reporter.onEvent (GroupDone label)
     pure r
   evalTree reporter cfg abortRef path (It label loc test) level = do
-    abort <- readIORef abortRef
+    abort <- liftIO (readIORef abortRef)
     if abort
       then pure emptyResult
       else do
-        start <- clockTime Monotonic
+        start <- liftIO (clockTime Monotonic)
         result <- test ()
-        end <- clockTime Monotonic
+        end <- liftIO (clockTime Monotonic)
         let elapsed = toNano (timeDifference end start)
         let testPath = path ++ [label]
         let s = case result of
@@ -142,7 +140,7 @@ mutual
               Fail info   => MkTestReport testPath loc (Failed info elapsed)
               Skip reason => MkTestReport testPath loc (Skipped reason)
         reporter.onEvent (TestDone report level)
-        when (cfg.failFast && s.failed > 0) (writeIORef abortRef True)
+        when (cfg.failFast && s.failed > 0) (liftIO (writeIORef abortRef True))
         pure (s, [< report])
   evalTree reporter cfg abortRef path (Pending label reason) level = do
     reporter.onEvent (PendingTest label reason level)
@@ -155,10 +153,10 @@ mutual
     cleanup
     pure r
 
-  evalForest : Reporter -> RunConfig -> IORef Bool -> List String -> List (SpecTree ()) -> Nat -> IO EvalResult
+  evalForest : HasIO m => Reporter m -> RunConfig -> IORef Bool -> List String -> List (SpecTree m ()) -> Nat -> m EvalResult
   evalForest _ _ _ _ [] _ = pure emptyResult
   evalForest reporter cfg abortRef path (t :: ts) level = do
-    abort <- readIORef abortRef
+    abort <- liftIO (readIORef abortRef)
     if abort
       then pure emptyResult
       else do
@@ -166,7 +164,7 @@ mutual
         r2 <- evalForest reporter cfg abortRef path ts level
         pure (mergeResults r1 r2)
 
-makeReporter : RunConfig -> IO Reporter
+makeReporter : HasIO m => RunConfig -> m (Reporter m)
 makeReporter cfg = do
   let console = consoleReporter cfg
   case cfg.junitOutput of
@@ -175,58 +173,30 @@ makeReporter cfg = do
       pure (combineReporters [console, junit])
     Nothing => pure console
 
-threadSafeReporter : Reporter -> IO Reporter
-threadSafeReporter r = do
-  m <- makeMutex
-  pure $ MkReporter $ \e => do
-    mutexAcquire m
-    r.onEvent e
-    mutexRelease m
-
-collectResults : Channel EvalResult -> Nat -> EvalResult -> IO EvalResult
-collectResults _ Z acc = pure acc
-collectResults chan (S k) acc = do
-  r <- channelGet chan
-  collectResults chan k (mergeResults acc r)
-
-evalParallel : Reporter -> RunConfig -> List (SpecTree ()) -> IO EvalResult
-evalParallel reporter cfg trees = do
-  chan <- makeChannel
-  abortRef <- newIORef False
-  let n = length trees
-  for_ trees $ \tree =>
-    forkIO $ do
-      r <- tryIO (evalTree reporter cfg abortRef [] tree 0) (pure emptyResult)
-      channelPut chan r
-  collectResults chan n emptyResult
-
 failedPaths : SnocList TestReport -> List (List String)
 failedPaths = foldl (\acc, r => case r.outcome of Failed _ _ => r.path :: acc; _ => acc) []
 
-runWithConfig : RunConfig -> List (SpecTree ()) -> IO EvalResult
+-- Core runs sequentially. `cfg.jobs` is parsed and stored but ignored here;
+-- the evince-async driver reads it for parallel execution.
+runWithConfig : HasIO m => RunConfig -> List (SpecTree m ()) -> m EvalResult
 runWithConfig cfg trees = do
   let filtered = applyFilters cfg trees
   rerunFiltered <- if cfg.rerun
     then do
-      Just failures <- readFailures
+      Just failures <- liftIO readFailures
         | Nothing => pure filtered
       pure (filterByPaths failures [] filtered)
     else pure filtered
-  baseReporter <- makeReporter cfg
-  reporter <- if cfg.jobs > 0
-    then threadSafeReporter baseReporter
-    else pure baseReporter
-  abortRef <- newIORef False
+  reporter <- makeReporter cfg
+  abortRef <- liftIO (newIORef False)
   reporter.onEvent SuiteStarted
-  r <- if cfg.jobs > 0
-    then evalParallel reporter cfg rerunFiltered
-    else evalForest reporter cfg abortRef [] rerunFiltered 0
+  r <- evalForest reporter cfg abortRef [] rerunFiltered 0
   reporter.onEvent (SuiteDone (fst r))
   pure r
 
 ||| Run a spec suite with custom configuration and return the summary.
 export
-runSpecWithSummaryAndConfig : RunConfig -> Spec () () -> IO Summary
+runSpecWithSummaryAndConfig : RunConfig -> Spec IO () () -> IO Summary
 runSpecWithSummaryAndConfig cfg spec = do
   (summary, _) <- runWithConfig cfg (getSpecTrees spec)
   pure summary
@@ -234,12 +204,12 @@ runSpecWithSummaryAndConfig cfg spec = do
 ||| Run a spec suite and return the summary without exiting. Useful for
 ||| meta-testing (testing evince with evince).
 export
-runSpecWithSummary : Spec () () -> IO Summary
+runSpecWithSummary : Spec IO () () -> IO Summary
 runSpecWithSummary = runSpecWithSummaryAndConfig defaultConfig
 
 ||| Run a spec suite with custom configuration.
 export
-runSpecWith : RunConfig -> Spec () () -> IO ()
+runSpecWith : RunConfig -> Spec IO () () -> IO ()
 runSpecWith cfg spec = do
   (summary, reports) <- runWithConfig cfg (getSpecTrees spec)
   writeFailures (failedPaths reports)
@@ -247,22 +217,22 @@ runSpecWith cfg spec = do
 
 ||| Run a spec suite, print colored results, exit with code 1 if any test failed.
 export
-runSpec : Spec () () -> IO ()
+runSpec : Spec IO () () -> IO ()
 runSpec = runSpecWith defaultConfig
 
-||| Run with fail-fast enabled — stop after the first failure.
+||| Run with fail-fast enabled - stop after the first failure.
 export
-runSpecFailFast : Spec () () -> IO ()
+runSpecFailFast : Spec IO () () -> IO ()
 runSpecFailFast = runSpecWith ({ failFast := True } defaultConfig)
 
 ||| Run with per-test timing displayed.
 export
-runSpecTimed : Spec () () -> IO ()
+runSpecTimed : Spec IO () () -> IO ()
 runSpecTimed = runSpecWith ({ showTiming := True } defaultConfig)
 
 ||| Run a spec suite, reading CLI args for configuration.
 export
-runSpecWithArgs : Spec () () -> IO ()
+runSpecWithArgs : Spec IO () () -> IO ()
 runSpecWithArgs spec = do
   args <- getArgs
   let cfg = parseArgs (drop 1 args)

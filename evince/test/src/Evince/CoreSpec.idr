@@ -3,7 +3,7 @@ module Evince.CoreSpec
 import Evince
 
 export
-coreSpec : Spec () ()
+coreSpec : Spec IO () ()
 coreSpec = do
   describe "TestResult" $ do
     describe "monadic chaining" $ do
@@ -25,7 +25,7 @@ coreSpec = do
 
   describe "Summary" $ do
     it "neutral is all zeros" $
-      totalCount (the Summary neutral) `mustBe` 0
+      totalCount neutral `mustBe` 0
 
     it "combines componentwise" $
       totalCount (MkSummary 1 2 3 0 <+> MkSummary 4 5 6 0) `mustBe` 21

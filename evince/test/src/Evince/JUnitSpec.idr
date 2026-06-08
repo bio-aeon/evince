@@ -15,7 +15,7 @@ skippedReport : TestReport
 skippedReport = MkTestReport ["Suite", "skipped"] Nothing (Skipped (Just "todo"))
 
 export
-junitSpec : Spec () ()
+junitSpec : Spec IO () ()
 junitSpec = describe "JUnit XML" $ do
   describe "renderXml" $ do
     it "includes XML declaration" $

@@ -5,7 +5,7 @@
 A testing framework for Idris 2.
 
 Evince provides an Hspec-inspired BDD interface with `describe`/`it` blocks,
-colored console output, and assertions powered by `DecEq` — Idris 2's
+colored console output, and assertions powered by `DecEq` - Idris 2's
 decidable equality.
 
 > **Note:** Evince is experimental. The API may change between versions.
@@ -56,7 +56,7 @@ Run with `pack test <your-package>`. Exit code is 1 if any test fails, 0 otherwi
 | `itIOWith`  | Define an IO test that receives a resource           |
 | `xit`       | Skip a test (pending)                                |
 | `xdescribe` | Skip an entire group                                 |
-| `fit`       | Focus a test — only focused tests run when any exist |
+| `fit`       | Focus a test - only focused tests run when any exist |
 | `fdescribe` | Focus an entire group                                |
 
 Prefix with `x` to skip, or `f` to focus:
@@ -105,6 +105,6 @@ Parser
 | [Hooks](docs/hooks.md) | `before`, `after`, `beforeAll`, `provide`, `beforeWith`, resource-passing |
 | [Runners](docs/runners.md) | `runSpec`, `runSpecFailFast`, `runSpecWith`, `runSpecWithArgs`, ... |
 | [CLI Options](docs/cli.md) | `--fail-fast`, `--match`, `--skip`, `--jobs`, `--junit`, `--rerun`, ... |
-| [Source Locations](docs/source-locations.md) | `itLoc`/`itIOLoc` — capture file and line via elaborator reflection |
+| [Source Locations](docs/source-locations.md) | `itLoc`/`itIOLoc` - capture file and line via elaborator reflection |
 | [Structural Diffs](docs/diffs.md) | Colored diff output for complex value failures |
 | [Hedgehog](docs/hedgehog.md) | Property testing via `evince-hedgehog` + idris2-hedgehog |
