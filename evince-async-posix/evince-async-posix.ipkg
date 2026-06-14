@@ -1,0 +1,14 @@
+package evince-async-posix
+version = 0.6.0
+authors = "Alexandr Chigrinets"
+license = "MIT"
+brief = "Multi-threaded parallel runner for evince (posix/poll thread pool)"
+
+depends = evince
+        , evince-async
+        , async
+        , async-posix
+
+modules = Evince.Async.Posix
+
+sourcedir = "src"

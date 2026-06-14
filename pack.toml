@@ -19,3 +19,36 @@ test = "test/test.ipkg"
 type = "local"
 path = "evince-hedgehog/test"
 ipkg = "test.ipkg"
+
+[custom.all.evince-async]
+type = "local"
+path = "evince-async"
+ipkg = "evince-async.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.evince-async-test]
+type = "local"
+path = "evince-async/test"
+ipkg = "test.ipkg"
+
+[custom.all.evince-async-js]
+type = "local"
+path = "evince-async-js"
+ipkg = "evince-async-js.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.evince-async-js-test]
+type = "local"
+path = "evince-async-js/test"
+ipkg = "test.ipkg"
+
+[custom.all.evince-async-posix]
+type = "local"
+path = "evince-async-posix"
+ipkg = "evince-async-posix.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.evince-async-posix-test]
+type = "local"
+path = "evince-async-posix/test"
+ipkg = "test.ipkg"

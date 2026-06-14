@@ -1,0 +1,13 @@
+package evince-async-posix-test
+version = 0.1.0
+authors = "Alexandr Chigrinets"
+license = "MIT"
+
+depends = evince
+        , evince-async-posix
+        , async
+        , async-posix
+
+main = Main
+executable = "evince-async-posix-test"
+sourcedir = "src"

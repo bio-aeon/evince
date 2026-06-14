@@ -1,0 +1,14 @@
+package evince-async-js
+version = 0.6.0
+authors = "Alexandr Chigrinets"
+license = "MIT"
+brief = "JS/Node concurrent runner for evince (async-js event loop)"
+
+depends = evince
+        , evince-async
+        , async
+        , async-js
+
+modules = Evince.Async.JS
+
+sourcedir = "src"

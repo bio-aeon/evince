@@ -1,0 +1,13 @@
+package evince-async-js-test
+version = 0.1.0
+authors = "Alexandr Chigrinets"
+license = "MIT"
+
+depends = evince
+        , evince-async-js
+        , async
+        , async-js
+
+main = Main
+executable = "evince-async-js-test"
+sourcedir = "src"

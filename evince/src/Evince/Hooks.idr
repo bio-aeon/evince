@@ -1,9 +1,14 @@
 module Evince.Hooks
 
 import Data.IORef
+import Data.Linear.Ref1
 import Data.SnocList
 import public Evince.Synchronized
 import Evince.Core
+
+-- The lock cell is a Data.Linear.Ref1 ref (`newref`); the done-flag stays a
+-- base Data.IORef. Hide Ref1's deprecated newIORef so it doesn't clash.
+%hide Data.Linear.Ref1.newIORef
 
 -- Transform every It node's test action. Most general tree walker:
 -- changes resource type and wraps the action in one pass.
@@ -47,7 +52,7 @@ export
 beforeAll : {m : Type -> Type} -> (Synchronized m, HasIO m) => m () -> Spec m a () -> Spec m a ()
 beforeAll setup body =
   let ref  = unsafePerformIO (newIORef False)
-      lock = unsafePerformIO newLock
+      lock = unsafePerformIO (newref False)
       wrappedSetup = withLock lock $ do
         done <- liftIO (readIORef ref)
         unless done $ do setup; liftIO (writeIORef ref True)
@@ -87,8 +92,8 @@ afterWith teardown body =
 export
 beforeAllWith : {m : Type -> Type} -> (Synchronized m, HasIO m) => (outer -> m inner) -> Spec m inner () -> Spec m outer ()
 beforeAllWith f body =
-  let ref : IORef (Maybe inner) = unsafePerformIO (newIORef Nothing)
-      lock = unsafePerformIO newLock
+  let ref  = unsafePerformIO (newIORef (the (Maybe inner) Nothing))
+      lock = unsafePerformIO (newref False)
       cachedF = \o => withLock lock $ do
         cached <- liftIO (readIORef ref)
         case cached of

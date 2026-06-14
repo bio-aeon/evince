@@ -105,16 +105,29 @@ applyFilters cfg trees =
              else t3
   in t4
 
+||| A running tally: the summary counts plus the per-test reports collected
+||| so far. Accumulated as the forest is evaluated.
+public export
 EvalResult : Type
 EvalResult = (Summary, SnocList TestReport)
 
+||| The empty tally - no counts and no reports - used as the starting
+||| accumulator when folding results together.
+export
 emptyResult : EvalResult
 emptyResult = (neutral, [<])
 
+||| Combine two tallies, adding their summary counts and concatenating their
+||| reports.
+export
 mergeResults : EvalResult -> EvalResult -> EvalResult
 mergeResults (s1, r1) (s2, r2) = (s1 <+> s2, r1 ++ r2)
 
 mutual
+  ||| Evaluate one spec-tree node, emitting the matching reporter events and
+  ||| returning its tally. Recurses through groups; runs and times each test,
+  ||| honouring the abort flag (`--fail-fast`).
+  export
   evalTree : HasIO m => Reporter m -> RunConfig -> IORef Bool -> List String -> SpecTree m () -> Nat -> m EvalResult
   evalTree reporter cfg abortRef path (Describe label children) level = do
     reporter.onEvent (GroupStarted label level)
@@ -153,6 +166,9 @@ mutual
     cleanup
     pure r
 
+  ||| Evaluate a list of spec trees left to right, accumulating their tallies
+  ||| and stopping early once the abort flag (`--fail-fast`) is set.
+  export
   evalForest : HasIO m => Reporter m -> RunConfig -> IORef Bool -> List String -> List (SpecTree m ()) -> Nat -> m EvalResult
   evalForest _ _ _ _ [] _ = pure emptyResult
   evalForest reporter cfg abortRef path (t :: ts) level = do
@@ -164,6 +180,9 @@ mutual
         r2 <- evalForest reporter cfg abortRef path ts level
         pure (mergeResults r1 r2)
 
+||| Build the reporter for a run: the console reporter, combined with the
+||| JUnit reporter when `--junit` is set.
+export
 makeReporter : HasIO m => RunConfig -> m (Reporter m)
 makeReporter cfg = do
   let console = consoleReporter cfg
@@ -173,13 +192,23 @@ makeReporter cfg = do
       pure (combineReporters [console, junit])
     Nothing => pure console
 
+||| The paths of every failed test, for `--rerun` to replay next time.
+export
 failedPaths : SnocList TestReport -> List (List String)
 failedPaths = foldl (\acc, r => case r.outcome of Failed _ _ => r.path :: acc; _ => acc) []
 
--- Core runs sequentially. `cfg.jobs` is parsed and stored but ignored here;
--- the evince-async driver reads it for parallel execution.
-runWithConfig : HasIO m => RunConfig -> List (SpecTree m ()) -> m EvalResult
-runWithConfig cfg trees = do
+||| Run a suite's forest with a caller-supplied evaluator. Applies the CLI
+||| filters and rerun selection, then brackets the evaluation with the
+||| suite-started/done events.
+export
+runForestWith :
+     HasIO m
+  => Reporter m
+  -> (eval : IORef Bool -> List (SpecTree m ()) -> m EvalResult)
+  -> RunConfig
+  -> List (SpecTree m ())
+  -> m EvalResult
+runForestWith reporter eval cfg trees = do
   let filtered = applyFilters cfg trees
   rerunFiltered <- if cfg.rerun
     then do
@@ -187,12 +216,18 @@ runWithConfig cfg trees = do
         | Nothing => pure filtered
       pure (filterByPaths failures [] filtered)
     else pure filtered
-  reporter <- makeReporter cfg
   abortRef <- liftIO (newIORef False)
   reporter.onEvent SuiteStarted
-  r <- evalForest reporter cfg abortRef [] rerunFiltered 0
+  r <- eval abortRef rerunFiltered
   reporter.onEvent (SuiteDone (fst r))
   pure r
+
+-- Core runs sequentially. `cfg.jobs` is parsed and stored but ignored here;
+-- a concurrent driver reads it to run groups concurrently.
+runWithConfig : HasIO m => RunConfig -> List (SpecTree m ()) -> m EvalResult
+runWithConfig cfg trees = do
+  reporter <- makeReporter cfg
+  runForestWith reporter (\abortRef, ts => evalForest reporter cfg abortRef [] ts 0) cfg trees
 
 ||| Run a spec suite with custom configuration and return the summary.
 export
