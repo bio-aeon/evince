@@ -14,8 +14,7 @@ The `IO ()` variants print colored results and call `exitFailure` if any test
 fails. They also write `.evince-failures` for the rerun feature.
 
 The `IO Summary` variants return the summary without printing, exiting, or
-writing failure files - useful for meta-testing (testing your framework with
-itself).
+writing failure files - useful for meta-testing (testing Evince with itself).
 
 ## Fail-Fast
 
@@ -49,3 +48,10 @@ main = runSpecWith ({ failFast := True, showTiming := True } defaultConfig) spec
 ```
 
 Or use `runSpecWithArgs` to let users pass flags on the command line.
+
+## Concurrent and Parallel Runners
+
+The optional `evince-async`, `evince-async-js`, and `evince-async-posix` packages
+add `runSpecAsync*` runners (mirroring the names above) that run top-level groups
+concurrently - or, with `evince-async-posix`, in true parallel. See
+[Async drivers](async.md).

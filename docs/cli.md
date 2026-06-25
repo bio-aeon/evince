@@ -7,6 +7,9 @@ main : IO ()
 main = runSpecWithArgs spec
 ```
 
+Under an async driver package, use that package's `runSpecAsyncWithArgs` instead;
+it accepts the same flags and additionally applies `--jobs`.
+
 | Flag              | Description                                     |
 |-------------------|-------------------------------------------------|
 | `--fail-fast`     | Stop after the first failure                    |
@@ -17,7 +20,7 @@ main = runSpecWithArgs spec
 | `--seed=N`        | Deterministic seed for shuffle                  |
 | `--junit=FILE`    | Write JUnit XML report to FILE                  |
 | `--rerun`         | Re-run only previously failed tests             |
-| `--jobs=N`        | Run top-level groups in parallel (N threads)    |
+| `--jobs=N`        | Run top-level groups concurrently (async driver) |
 
 Flags can be combined freely: `--rerun --fail-fast`, `--jobs=4 --times`, etc.
 
@@ -46,16 +49,24 @@ to re-run only those tests:
 
 When all tests pass, the failure file is automatically deleted.
 
-## Parallel Execution
+## Concurrent and Parallel Execution
 
-Run top-level `describe` groups concurrently with `--jobs=N`:
+`--jobs=N` runs up to N top-level `describe` groups at once:
 
 ```sh
 ./my-tests --jobs=4
 ```
 
-Tests within each group still run sequentially (preserving hook semantics).
-`beforeAll` and `beforeAllWith` are thread-safe - setup runs exactly once even
-when multiple threads reach it concurrently.
+Tests within each group still run sequentially (preserving hook semantics), and
+`beforeAll` / `beforeAllWith` setup runs exactly once even when groups run
+together.
 
-Requires the Chez Scheme backend.
+`--jobs` only takes effect with an async driver package. With `evince` alone the
+flag is accepted but ignored, and the suite runs sequentially. Which driver you
+add decides whether you get concurrency or true parallelism:
+
+- `evince-async` / `evince-async-js` - single-threaded concurrency (overlaps
+  awaiting; no CPU speedup).
+- `evince-async-posix` - true multi-core parallelism (Chez only).
+
+See [Async drivers](async.md) for the full model and backend support.

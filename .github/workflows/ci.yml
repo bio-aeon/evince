@@ -17,21 +17,54 @@ defaults:
 
 jobs:
   build:
-    name: Build ${{ github.repository }} with Idris2 latest
+    name: ${{ matrix.cg }}
     runs-on: ubuntu-latest
     env:
       PACK_DIR: /root/.pack
     strategy:
       fail-fast: false
+      matrix:
+        cg: [chez, racket, node]
     container: ghcr.io/stefan-hoeck/idris2-pack:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Install Racket
+        if: matrix.cg == 'racket'
+        run: apt-get update && apt-get install -y racket
+
+      - name: Install Node
+        if: matrix.cg == 'node'
+        run: apt-get update && apt-get install -y nodejs
+
       - name: Build evince
-        run: pack --no-prompt install evince
+        run: pack --no-prompt --cg=${{ matrix.cg }} install evince
       - name: Test evince
-        run: pack --no-prompt test evince
+        run: pack --no-prompt --cg=${{ matrix.cg }} test evince
+
       - name: Build evince-hedgehog
-        run: pack --no-prompt install evince-hedgehog
+        run: pack --no-prompt --cg=${{ matrix.cg }} install evince-hedgehog
       - name: Test evince-hedgehog
-        run: pack --no-prompt test evince-hedgehog
+        run: pack --no-prompt --cg=${{ matrix.cg }} test evince-hedgehog
+
+      - name: Build evince-async
+        if: matrix.cg == 'chez' || matrix.cg == 'racket'
+        run: pack --no-prompt --cg=${{ matrix.cg }} install evince-async
+      - name: Test evince-async
+        if: matrix.cg == 'chez' || matrix.cg == 'racket'
+        run: pack --no-prompt --cg=${{ matrix.cg }} test evince-async
+
+      - name: Build evince-async-posix
+        if: matrix.cg == 'chez'
+        run: pack --no-prompt --cg=${{ matrix.cg }} install evince-async-posix
+      - name: Test evince-async-posix
+        if: matrix.cg == 'chez'
+        run: pack --no-prompt --cg=${{ matrix.cg }} test evince-async-posix
+
+      - name: Build evince-async-js
+        if: matrix.cg == 'node'
+        run: pack --no-prompt --cg=${{ matrix.cg }} install evince-async-js
+      - name: Test evince-async-js
+        if: matrix.cg == 'node'
+        run: pack --no-prompt --cg=${{ matrix.cg }} test evince-async-js

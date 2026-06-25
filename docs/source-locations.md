@@ -7,7 +7,7 @@ the location is shown next to the test name:
 import Language.Reflection
 %language ElabReflection
 
-spec : Spec () ()
+spec : Spec IO () ()
 spec = describe "Parser" $ do
   itLoc `(()) "parses integers" $
     parse "42" `mustBe` Right 42

@@ -8,7 +8,8 @@ Evince provides an Hspec-inspired BDD interface with `describe`/`it` blocks,
 colored console output, and assertions powered by `DecEq` - Idris 2's
 decidable equality.
 
-> **Note:** Evince is experimental. The API may change between versions.
+> **Note:** Evince is experimental. The API may change between versions - see the
+> [changelog](CHANGELOG.md).
 
 ## Installation
 
@@ -26,7 +27,7 @@ module Main
 
 import Evince
 
-spec : Spec () ()
+spec : Spec IO () ()
 spec = describe "Parser" $ do
   it "parses positive integers" $
     parse "42" `mustBe` Right 42
@@ -62,7 +63,7 @@ Run with `pack test <your-package>`. Exit code is 1 if any test fails, 0 otherwi
 Prefix with `x` to skip, or `f` to focus:
 
 ```idris
-spec : Spec () ()
+spec : Spec IO () ()
 spec = describe "Feature" $ do
   xit "not implemented yet" $      -- skipped, shown in yellow
     pending
@@ -73,6 +74,9 @@ spec = describe "Feature" $ do
   it "normally runs" $             -- excluded when focused tests exist
     2 `mustBe` 2
 ```
+
+`Async`-bodied tests (`itAsync` / `itAsyncWith`) come from the async driver
+packages rather than core - see [Async drivers](docs/async.md).
 
 ## Output
 
@@ -107,4 +111,5 @@ Parser
 | [CLI Options](docs/cli.md) | `--fail-fast`, `--match`, `--skip`, `--jobs`, `--junit`, `--rerun`, ... |
 | [Source Locations](docs/source-locations.md) | `itLoc`/`itIOLoc` - capture file and line via elaborator reflection |
 | [Structural Diffs](docs/diffs.md) | Colored diff output for complex value failures |
-| [Hedgehog](docs/hedgehog.md) | Property testing via `evince-hedgehog` + idris2-hedgehog |
+| [Hedgehog](docs/hedgehog.md) | Property testing via `evince-hedgehog` + `idris2-hedgehog` |
+| [Async drivers](docs/async.md) | Concurrent / parallel execution: `evince-async`, `-js`, `-posix`, `runSpecAsync*` |

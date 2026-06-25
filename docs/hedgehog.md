@@ -20,7 +20,7 @@ import Evince
 import Evince.Hedgehog
 import Hedgehog
 
-spec : Spec () ()
+spec : Spec IO () ()
 spec = describe "Arithmetic" $ do
   itProp "addition is commutative" $ do
     x <- forAll $ int (linear (-100) 100)
@@ -29,6 +29,12 @@ spec = describe "Arithmetic" $ do
 
   itProp1 "zero is identity" $ do
     diff (0 + 0) (==) (the Int 0)
+
+  -- prop embeds a configured Property (here: 1000 tests via withTests)
+  prop "multiplication is commutative" $ withTests 1000 $ property $ do
+    x <- forAll $ int (linear (-100) 100)
+    y <- forAll $ int (linear (-100) 100)
+    diff (x * y) (==) (y * x)
 ```
 
 ## API

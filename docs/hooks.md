@@ -11,7 +11,7 @@ Hooks run setup/teardown actions around tests.
 | `around` | Wrap each test with a custom IO action |
 
 ```idris
-spec : Spec () ()
+spec : Spec IO () ()
 spec = describe "Database" $
   before (connect "test.db") $
   after disconnect $ do
@@ -30,8 +30,9 @@ spec = describe "Database" $
 | `afterAll`  | Run an IO action once after all tests       |
 
 `beforeAll`/`afterAll` run once for the entire group rather than per-test.
-`beforeAll` is thread-safe - under parallel execution, the setup runs exactly
-once even when multiple threads reach it concurrently.
+Under the optional async driver packages (concurrent or parallel execution),
+`beforeAll`'s setup still runs exactly once - it is guarded by a lock. See
+[Async drivers](async.md).
 
 ## Resource-Passing Hooks
 
@@ -49,7 +50,7 @@ These hooks thread a resource into tests, transforming the `Spec` resource type:
 result available to all tests in the group via `itWith`/`itIOWith`:
 
 ```idris
-spec : Spec () ()
+spec : Spec IO () ()
 spec = describe "Database" $
   provide (connectDb "test.db") $
   afterWith closeDb $ do
@@ -61,7 +62,7 @@ spec = describe "Database" $
 `beforeWith` transforms an existing resource into a different type:
 
 ```idris
-spec : Spec () ()
+spec : Spec IO () ()
 spec = describe "API" $
   provide (startServer 8080) $
   beforeWith (\server => mkClient server.url) $ do
@@ -71,5 +72,6 @@ spec = describe "API" $
 ```
 
 `beforeAllWith` is like `beforeWith` but caches the result - the transformation
-runs once on the first test and subsequent tests reuse the cached value.
-Thread-safe under parallel execution.
+runs once on the first test and subsequent tests reuse the cached value. This
+stays once-only even under the async drivers' concurrent or parallel execution
+(the cached value is lock-guarded).
