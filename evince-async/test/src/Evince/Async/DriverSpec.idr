@@ -1,13 +1,24 @@
 module Evince.Async.DriverSpec
 
 import Data.IORef
+import Language.Reflection
 import IO.Async
 import IO.Async.Loop.Sync
 import Evince
 import Evince.Async
 
+%language ElabReflection
+
 -- Disambiguate from Data.Linear.Ref1's deprecated newIORef, pulled in by IO.Async.
 %hide Data.Linear.Ref1.newIORef
+
+extractAsyncLoc : Spec (Async SyncST []) () () -> Maybe SrcLoc
+extractAsyncLoc spec = case getSpecTrees spec of
+  [It _ loc _] => loc
+  _ => Nothing
+
+asyncLocSpec : Spec (Async SyncST []) () ()
+asyncLocSpec = itAsyncLoc `(()) "test" $ pure (1 `mustBe` 1)
 
 export
 driverSpec : Spec IO () ()
@@ -22,6 +33,15 @@ driverSpec = describe "async driver" $ do
       s <- runSpecAsyncWithSummary $
         itAsync "fails" $ pure (1 `mustBe` 2)
       pure $ s.failed `mustBe` 1
+
+  describe "itAsyncLoc" $ do
+    it "captures a source location" $
+      mustBeJust (extractAsyncLoc asyncLocSpec)
+
+    it "captured line is positive" $
+      case extractAsyncLoc asyncLocSpec of
+        Just loc => loc.line `mustSatisfy` (> 0)
+        Nothing => mustFail "expected SrcLoc"
 
   describe "hoistSpec" $ do
     itIO "runs a hoisted Spec IO under the driver" $ do

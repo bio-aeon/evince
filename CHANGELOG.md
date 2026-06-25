@@ -28,6 +28,8 @@ of core into dedicated driver packages - which also unblocks the Node/JS backend
   (Node/JS).
 - **`evince-async-posix`** - true multi-core parallel driver on the thread pool
   from `async-posix` (Chez).
+- `itAsyncLoc` - source-location capture for `Async` test bodies, the `Async`
+  sibling of `itLoc` / `itIOLoc`.
 - `Synchronized` interface in core - the lock seam the drivers use to keep
   `beforeAll` / `beforeAllWith` memoization correct under concurrency.
 - `docs/async.md` documenting the driver model, concurrency vs parallelism and

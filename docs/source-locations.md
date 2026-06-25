@@ -22,7 +22,8 @@ spec = describe "Parser" $ do
     ...
 ```
 
-`itIOLoc` is the IO variant. Both require `import Language.Reflection` and
+`itIOLoc` is the IO variant, and `itAsyncLoc` (from the async driver packages)
+the `Async` variant. All require `import Language.Reflection` and
 `%language ElabReflection` in the test module.
 
 ## How It Works

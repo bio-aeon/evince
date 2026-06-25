@@ -64,6 +64,7 @@ use the async cousins (from `Evince.Async.Spec`, re-exported by every driver):
 |---|---|---|
 | `itAsync` | `Async e [] (TestResult ())` | `it` / `itIO` |
 | `itAsyncWith` | `a -> Async e [] (TestResult ())`, receiving the group's resource | `itWith` / `itIOWith` |
+| `itAsyncLoc` | `Async e [] (TestResult ())`, with the call-site location captured | `itLoc` / `itIOLoc` |
 
 ```idris
 itAsync "runs in a fiber" $ do
@@ -73,6 +74,10 @@ itAsync "runs in a fiber" $ do
 
 Assert with the pure matchers (as above); the IO-shaped helpers (`mustReturn`,
 `mustError`) need `liftIO`.
+
+`itAsyncLoc` captures the call-site file and line (shown on failure), like core's
+`itLoc`. Pass a leading `` `(()) `` and enable `%language ElabReflection` - see
+[Source Locations](source-locations.md).
 
 ## Runner entry points
 
