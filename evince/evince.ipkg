@@ -14,7 +14,6 @@ brief = "A testing framework for Idris 2"
 
 -- packages to add to search path
 depends = pretty-show
-        , ref1
 
 -- modules to install
 modules = Evince

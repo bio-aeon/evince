@@ -22,7 +22,7 @@ acquire ref = assert_total $ do
 ||| Run an action with the lock held, serializing concurrent `Async` fibers
 ||| (across worker threads) via the atomic CAS spinlock.
 export
-asyncWithLock : IORef Bool -> Async e [] a -> Async e [] a
+asyncWithLock : IORef Bool -> ({0 a : Type} -> Async e [] a -> Async e [] a)
 asyncWithLock ref act = do
   acquire ref
   r <- act
@@ -31,4 +31,6 @@ asyncWithLock ref act = do
 
 export
 {e : Type} -> Synchronized (Async e []) where
-  withLock = asyncWithLock
+  newLock = do
+    ref <- newref False
+    pure (MkLock (asyncWithLock ref))

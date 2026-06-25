@@ -59,9 +59,9 @@ runSpecAsyncTimed = runSpecTimedVia app
 ||| if you run group-level setup concurrently.
 export
 runSpecAsyncIO : Spec IO () () -> IO ()
-runSpecAsyncIO = runSpecAsync . hoistSpec (\io => liftIO io)
+runSpecAsyncIO = runSpecAsync . hoistSpec liftIO
 
 ||| Like `runSpecAsyncIO`, with custom configuration.
 export
 runSpecAsyncIOWith : RunConfig -> Spec IO () () -> IO ()
-runSpecAsyncIOWith cfg = runSpecAsyncWith cfg . hoistSpec (\io => liftIO io)
+runSpecAsyncIOWith cfg = runSpecAsyncWith cfg . hoistSpec liftIO

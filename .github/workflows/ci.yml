@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cg: [chez, racket, node]
+        cg: [chez, racket, refc, node]
     container: ghcr.io/stefan-hoeck/idris2-pack:latest
     steps:
       - name: Checkout

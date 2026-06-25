@@ -43,8 +43,7 @@ of core into dedicated driver packages - which also unblocks the Node/JS backend
   sites (they constrain `m` themselves).
 - `--jobs=N` is now acted on by an async driver package; with `evince` alone the
   flag is accepted but ignored and the suite runs sequentially.
-- Core now depends on `ref1` (the `Synchronized` lock cell) and no longer on the
-  unused `contrib`.
+- Core no longer depends on the unused `contrib`.
 
 ### Removed
 

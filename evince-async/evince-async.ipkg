@@ -6,6 +6,7 @@ brief = "Async-based concurrent runner for evince"
 
 depends = evince
         , async
+        , ref1
 
 modules = Evince.Async
         , Evince.Async.Spec

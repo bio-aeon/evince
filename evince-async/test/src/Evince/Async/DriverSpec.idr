@@ -47,7 +47,7 @@ driverSpec = describe "async driver" $ do
     itIO "runs a hoisted Spec IO under the driver" $ do
       ref <- newIORef (the Nat 0)
       let ioSpec = itIO "io" $ do modifyIORef ref (+ 1); pure (1 `mustBe` 1)
-      s <- runSpecAsyncWithSummary (hoistSpec (\io => liftIO io) ioSpec)
+      s <- runSpecAsyncWithSummary (hoistSpec liftIO ioSpec)
       n <- readIORef ref
       pure $ do
         s.passed `mustBe` 1
