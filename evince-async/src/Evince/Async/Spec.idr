@@ -18,6 +18,11 @@ export
 itAsyncWith : String -> (a -> Async e [] (TestResult ())) -> Spec (Async e []) a ()
 itAsyncWith label f = MkSpec [< It label Nothing f] ()
 
+||| Mark an `Async` test as pending - the body is ignored and not executed.
+export
+xitAsync : String -> Lazy (Async e [] (TestResult ())) -> Spec (Async e []) a ()
+xitAsync label _ = MkSpec [< Pending label Nothing] ()
+
 ||| Define an `Async` test with source location captured at the call site.
 |||   itAsyncLoc `(()) "test name" $ asyncAction
 export

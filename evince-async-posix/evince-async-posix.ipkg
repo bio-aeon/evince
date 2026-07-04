@@ -1,5 +1,5 @@
 package evince-async-posix
-version = 0.6.0
+version = 0.7.0
 authors = "Alexandr Chigrinets"
 license = "MIT"
 brief = "Multi-threaded parallel runner for evince (posix/poll thread pool)"

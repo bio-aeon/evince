@@ -1,5 +1,5 @@
 package evince-async
-version = 0.6.0
+version = 0.7.0
 authors = "Alexandr Chigrinets"
 license = "MIT"
 brief = "Async-based concurrent runner for evince"
@@ -12,7 +12,6 @@ modules = Evince.Async
         , Evince.Async.Spec
         , Evince.Async.Synchronized
         , Evince.Async.Hoist
-        , Evince.Async.Reporter
         , Evince.Async.Shared
         , Evince.Async.Runner
 

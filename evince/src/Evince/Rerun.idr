@@ -7,6 +7,8 @@ import System.File
 failureFilePath : String
 failureFilePath = ".evince-failures"
 
+||| Render a test path in the dot-joined format used by the failure file.
+export
 joinPath : List String -> String
 joinPath = concat . intersperse "."
 

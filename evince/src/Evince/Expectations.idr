@@ -64,7 +64,7 @@ mustBeFalse True  = Fail $ Reason "expected False but got True"
 
 ||| Passes if the value is `Just _`.
 export
-mustBeJust : Show a => Maybe a -> TestResult ()
+mustBeJust : Maybe a -> TestResult ()
 mustBeJust (Just _)  = Pass ()
 mustBeJust Nothing   = Fail $ Reason "expected Just but got Nothing"
 
@@ -76,13 +76,13 @@ mustBeNothing (Just x) = Fail $ PredicateFailed "expected Nothing but got Just" 
 
 ||| Passes if the value is `Right _`.
 export
-mustBeRight : (Show a, Show b) => Either a b -> TestResult ()
+mustBeRight : Show a => Either a b -> TestResult ()
 mustBeRight (Right _) = Pass ()
 mustBeRight (Left x)  = Fail $ PredicateFailed "expected Right but got Left" (show x)
 
 ||| Passes if the value is `Left _`.
 export
-mustBeLeft : (Show a, Show b) => Either a b -> TestResult ()
+mustBeLeft : Show b => Either a b -> TestResult ()
 mustBeLeft (Left _)  = Pass ()
 mustBeLeft (Right x) = Fail $ PredicateFailed "expected Left but got Right" (show x)
 

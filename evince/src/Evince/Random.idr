@@ -26,6 +26,11 @@ shuffleVect {n = S k}   seed xs =
           vj = index j v
       in replaceAt i vj (replaceAt j vi v)
 
+||| Advance a seed to the next value in the pseudo-random sequence.
+export
+nextSeed : Nat -> Nat
+nextSeed = lcg
+
 ||| Shuffle a list using a seed value.
 export
 shuffle : Nat -> List a -> List a

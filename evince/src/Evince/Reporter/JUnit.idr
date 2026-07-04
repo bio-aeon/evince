@@ -21,6 +21,11 @@ escape = concatMap escChar . unpack
     escChar '\'' = "&apos;"
     escChar c    = singleton c
 
+firstLine : String -> String
+firstLine s = case lines s of
+  (l :: _) => l
+  []       => s
+
 splitLast : List String -> (List String, String)
 splitLast [] = ([], "")
 splitLast [x] = ([], x)
@@ -46,13 +51,14 @@ renderTestCase report =
          "    <testcase name=\"" ++ name ++ "\" classname=\"" ++ cn
            ++ "\"" ++ loc ++ " time=\"" ++ nanosToSeconds elapsed ++ "\"/>\n"
        Failed info elapsed =>
-         let msg = case failureDiff info of
+         let (msg, detail) = case failureDiff info of
                Just (reason, diffs) =>
-                 reason ++ "\n" ++ unlines (map renderLineDiffPlain diffs)
-               Nothing => show info
+                 (reason, reason ++ "\n" ++ unlines (map renderLineDiffPlain diffs))
+               Nothing => (firstLine (show info), show info)
          in "    <testcase name=\"" ++ name ++ "\" classname=\"" ++ cn
            ++ "\"" ++ loc ++ " time=\"" ++ nanosToSeconds elapsed ++ "\">\n"
-           ++ "      <failure message=\"" ++ escape msg ++ "\"/>\n"
+           ++ "      <failure message=\"" ++ escape msg ++ "\">"
+           ++ escape detail ++ "</failure>\n"
            ++ "    </testcase>\n"
        Skipped reason =>
          "    <testcase name=\"" ++ name ++ "\" classname=\"" ++ cn ++ "\"" ++ loc ++ ">\n"
@@ -78,6 +84,7 @@ renderXml reports =
     ++ "<testsuites>\n"
     ++ "  <testsuite name=\"evince\" tests=\"" ++ show (length reports)
     ++ "\" failures=\"" ++ show (countFailures reports)
+    ++ "\" errors=\"0"
     ++ "\" skipped=\"" ++ show (countSkipped reports)
     ++ "\" time=\"" ++ nanosToSeconds (totalTime reports) ++ "\">\n"
     ++ concatMap renderTestCase reports
@@ -87,7 +94,7 @@ renderXml reports =
 writeJUnitXml : String -> List TestReport -> IO ()
 writeJUnitXml filepath reports = do
   Right () <- writeFile filepath (renderXml reports)
-    | Left err => putStrLn $ "Error writing JUnit XML: " ++ show err
+    | Left err => ignore $ fPutStrLn stderr ("Error writing JUnit XML: " ++ show err)
   pure ()
 
 ||| Create a JUnit XML reporter that accumulates test results and writes

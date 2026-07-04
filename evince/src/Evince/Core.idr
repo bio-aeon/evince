@@ -138,8 +138,8 @@ record Summary where
 
 export
 Semigroup Summary where
-  (MkSummary p1 f1 d1 t1) <+> (MkSummary p2 f2 d2 t2) =
-    MkSummary (p1 + p2) (f1 + f2) (d1 + d2) (t1 + t2)
+  (MkSummary p1 f1 pn1 d1) <+> (MkSummary p2 f2 pn2 d2) =
+    MkSummary (p1 + p2) (f1 + f2) (pn1 + pn2) (d1 + d2)
 
 export
 Monoid Summary where
@@ -167,8 +167,9 @@ record RunConfig where
   junitOutput : Maybe String
   rerun       : Bool
   jobs        : Nat
+  color       : Bool
 
-||| Default configuration: no fail-fast, no timing, no filters.
+||| Default configuration: no fail-fast, no timing, no filters, colored output.
 export
 defaultConfig : RunConfig
-defaultConfig = MkRunConfig False False Nothing Nothing False Nothing Nothing False 0
+defaultConfig = MkRunConfig False False Nothing Nothing False Nothing Nothing False 0 True

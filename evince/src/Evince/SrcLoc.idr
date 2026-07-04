@@ -6,8 +6,6 @@ import Language.Reflection
 import Language.Reflection.TT
 import Language.Reflection.TTImp
 
-%language ElabReflection
-
 ||| A source file location (file path, line, column). Line and column
 ||| are 0-indexed.
 public export

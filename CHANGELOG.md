@@ -10,6 +10,41 @@ While pre-1.0, breaking changes may land in minor releases - they are marked
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-04
+
+### Added
+
+- `focus` - focus every test in a spec; composes with any combinator, unlike
+  the pure-only `fit`.
+- `xitIO` / `xitAsync` - pend an IO / `Async` test without rewriting its body.
+- `--help`, `--no-color` (and `NO_COLOR`); unknown or invalid arguments now
+  warn on stderr.
+
+### Changed
+
+- `xdescribe` reports every test in the group as pending, not a single entry.
+- Pure test bodies (`it`, `xit`, `fit`, `itLoc`) are `Lazy` - evaluated at run
+  time, not spec-build time.
+- JUnit: failure details are the `<failure>` element's body; added `errors="0"`.
+- Under `--jobs`, each group's output prints as one block, so concurrent groups
+  don't interleave.
+- **Breaking:** `evalAsyncForest` gained a `Lock` parameter - the reporter lock
+  used to serialize group output.
+
+### Removed
+
+- **Breaking:** `makeAsyncReporter` - superseded by the locked,
+  per-group-buffered reporting built into the async runners.
+
+### Fixed
+
+- `--skip` now works through nesting: a matching group skips its subtree, and
+  nested matching tests are skipped.
+- `--match` / `--skip` / `--rerun` now also filter pending tests and
+  `afterAll`-wrapped groups.
+- The async drivers fail loudly if the event loop ends before the suite
+  completes, instead of exiting 0.
+
 ## [0.6.0] - 2026-06-16
 
 The core became effect-polymorphic, and concurrent/parallel execution moved out

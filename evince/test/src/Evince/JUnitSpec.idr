@@ -25,6 +25,7 @@ junitSpec = describe "JUnit XML" $ do
       let xml = renderXml [passedReport, failedReport, skippedReport]
       xml `mustSatisfy` (isInfixOf "tests=\"3\"")
       xml `mustSatisfy` (isInfixOf "failures=\"1\"")
+      xml `mustSatisfy` (isInfixOf "errors=\"0\"")
       xml `mustSatisfy` (isInfixOf "skipped=\"1\"")
 
     it "renders passing test as self-closing testcase" $
@@ -32,7 +33,8 @@ junitSpec = describe "JUnit XML" $ do
         (isInfixOf "testcase name=\"passes\" classname=\"Suite\" time=\"0.003\"/>")
 
     it "renders failing test with failure element" $
-      renderXml [failedReport] `mustSatisfy` (isInfixOf "<failure message=\"boom\"/>")
+      renderXml [failedReport] `mustSatisfy`
+        (isInfixOf "<failure message=\"boom\">boom</failure>")
 
     it "renders skipped test with skipped element" $
       renderXml [skippedReport] `mustSatisfy` (isInfixOf "<skipped message=\"todo\"/>")

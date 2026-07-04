@@ -40,6 +40,8 @@ mutual
 applyFocus : List (SpecTree m a) -> List (SpecTree m a)
 applyFocus trees = if hasFocused trees then filterFocused trees else trees
 
+-- Match-shaped selection: a matching group label selects its whole subtree;
+-- otherwise recurse and keep the group only if some child survives.
 filterByLabel : (keep : String -> Bool) -> List (SpecTree m a) -> List (SpecTree m a)
 filterByLabel keep [] = []
 filterByLabel keep (It label loc test :: rest) =
@@ -53,20 +55,51 @@ filterByLabel keep (Describe label children :: rest) =
          in case filtered of
               [] => filterByLabel keep rest
               _  => Describe label filtered :: filterByLabel keep rest
+filterByLabel keep (Pending label reason :: rest) =
+  if keep label
+    then Pending label reason :: filterByLabel keep rest
+    else filterByLabel keep rest
 filterByLabel keep (Focused t :: rest) =
   case filterByLabel keep [t] of
     [t'] => Focused t' :: filterByLabel keep rest
     _    => filterByLabel keep rest
-filterByLabel keep (t :: rest) = t :: filterByLabel keep rest
+filterByLabel keep (WithCleanup cleanup children :: rest) =
+  case filterByLabel keep children of
+    [] => filterByLabel keep rest
+    filtered => WithCleanup cleanup filtered :: filterByLabel keep rest
+
+-- Skip-shaped exclusion: a matching label drops the node wholesale
+-- (a matching group label skips its entire subtree); otherwise recurse.
+dropByLabel : (matches : String -> Bool) -> List (SpecTree m a) -> List (SpecTree m a)
+dropByLabel matches [] = []
+dropByLabel matches (It label loc test :: rest) =
+  if matches label
+    then dropByLabel matches rest
+    else It label loc test :: dropByLabel matches rest
+dropByLabel matches (Describe label children :: rest) =
+  if matches label
+    then dropByLabel matches rest
+    else case dropByLabel matches children of
+           [] => dropByLabel matches rest
+           filtered => Describe label filtered :: dropByLabel matches rest
+dropByLabel matches (Pending label reason :: rest) =
+  if matches label
+    then dropByLabel matches rest
+    else Pending label reason :: dropByLabel matches rest
+dropByLabel matches (Focused t :: rest) =
+  case dropByLabel matches [t] of
+    [t'] => Focused t' :: dropByLabel matches rest
+    _    => dropByLabel matches rest
+dropByLabel matches (WithCleanup cleanup children :: rest) =
+  case dropByLabel matches children of
+    [] => dropByLabel matches rest
+    filtered => WithCleanup cleanup filtered :: dropByLabel matches rest
 
 filterByMatch : String -> List (SpecTree m a) -> List (SpecTree m a)
 filterByMatch pat = filterByLabel (isInfixOf pat)
 
 filterBySkip : String -> List (SpecTree m a) -> List (SpecTree m a)
-filterBySkip pat = filterByLabel (not . isInfixOf pat)
-
-joinPath : List String -> String
-joinPath = concat . intersperse "."
+filterBySkip pat = dropByLabel (isInfixOf pat)
 
 filterByPaths : List String -> List String -> List (SpecTree m a) -> List (SpecTree m a)
 filterByPaths _ _ [] = []
@@ -79,21 +112,34 @@ filterByPaths paths ctx (Describe label children :: rest) =
   in case filtered of
        [] => filterByPaths paths ctx rest
        _  => Describe label filtered :: filterByPaths paths ctx rest
+filterByPaths paths ctx (Pending label reason :: rest) =
+  if joinPath (ctx ++ [label]) `elem` paths
+    then Pending label reason :: filterByPaths paths ctx rest
+    else filterByPaths paths ctx rest
 filterByPaths paths ctx (Focused t :: rest) =
   case filterByPaths paths ctx [t] of
     [t'] => Focused t' :: filterByPaths paths ctx rest
     _    => filterByPaths paths ctx rest
-filterByPaths paths ctx (t :: rest) = t :: filterByPaths paths ctx rest
+filterByPaths paths ctx (WithCleanup cleanup children :: rest) =
+  case filterByPaths paths ctx children of
+    [] => filterByPaths paths ctx rest
+    filtered => WithCleanup cleanup filtered :: filterByPaths paths ctx rest
 
 shuffleTrees : Nat -> List (SpecTree m a) -> List (SpecTree m a)
 shuffleTrees seed [] = []
-shuffleTrees seed trees = shuffle seed (map go trees)
+shuffleTrees seed trees = shuffle seed (go (nextSeed seed) trees)
   where
-    go : SpecTree m a -> SpecTree m a
-    go (Describe label children) = Describe label (shuffleTrees seed children)
-    go (WithCleanup cleanup children) = WithCleanup cleanup (shuffleTrees seed children)
-    go (Focused t) = Focused (go t)
-    go t = t
+    goTree : Nat -> SpecTree m a -> SpecTree m a
+    goTree s (Describe label children) = Describe label (shuffleTrees s children)
+    goTree s (WithCleanup cleanup children) = WithCleanup cleanup (shuffleTrees s children)
+    goTree s (Focused t) = Focused (goTree s t)
+    goTree s t = t
+
+    -- Thread the seed across siblings so same-length sibling groups
+    -- don't get the same permutation.
+    go : Nat -> List (SpecTree m a) -> List (SpecTree m a)
+    go s [] = []
+    go s (t :: ts) = goTree s t :: go (nextSeed s) ts
 
 applyFilters : RunConfig -> List (SpecTree m a) -> List (SpecTree m a)
 applyFilters cfg trees =
@@ -181,10 +227,13 @@ mutual
         pure (mergeResults r1 r2)
 
 ||| Build the reporter for a run: the console reporter, combined with the
-||| JUnit reporter when `--junit` is set.
+||| JUnit reporter when `--junit` is set. Colors are dropped when the
+||| `NO_COLOR` environment variable is set.
 export
 makeReporter : HasIO m => RunConfig -> m (Reporter m)
-makeReporter cfg = do
+makeReporter cfg0 = do
+  noColor <- getEnv "NO_COLOR"
+  let cfg = if maybe False (/= "") noColor then { color := False } cfg0 else cfg0
   let console = consoleReporter cfg
   case cfg.junitOutput of
     Just path => do
@@ -265,10 +314,11 @@ export
 runSpecTimed : Spec IO () () -> IO ()
 runSpecTimed = runSpecWith ({ showTiming := True } defaultConfig)
 
-||| Run a spec suite, reading CLI args for configuration.
+||| Run a spec suite, reading CLI args for configuration. `--help` prints the
+||| flag reference and exits; unknown or invalid arguments warn on stderr.
 export
 runSpecWithArgs : Spec IO () () -> IO ()
 runSpecWithArgs spec = do
   args <- getArgs
-  let cfg = parseArgs (drop 1 args)
+  cfg <- handleArgs (drop 1 args)
   runSpecWith cfg spec

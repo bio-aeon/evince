@@ -47,6 +47,18 @@ hooksSpec = describe "Hooks" $ do
       count <- readIORef ref
       pure $ count `mustBe` 1
 
+    itIO "keeps setups independent across sibling groups" $ do
+      c1 <- newIORef (the Nat 0)
+      c2 <- newIORef (the Nat 0)
+      _ <- runSpecWithSummary $ do
+        beforeAll (modifyIORef c1 (+ 1)) $ describe "g1" $ it "a" $ 1 `mustBe` 1
+        beforeAll (modifyIORef c2 (+ 1)) $ describe "g2" $ it "b" $ 2 `mustBe` 2
+      n1 <- readIORef c1
+      n2 <- readIORef c2
+      pure $ do
+        n1 `mustBe` 1
+        n2 `mustBe` 1
+
   describe "afterAll" $ do
     itIO "runs cleanup after all tests finish" $ do
       ref <- newIORef False

@@ -1,5 +1,5 @@
 package evince-async-js
-version = 0.6.0
+version = 0.7.0
 authors = "Alexandr Chigrinets"
 license = "MIT"
 brief = "JS/Node concurrent runner for evince (async-js event loop)"

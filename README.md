@@ -56,9 +56,11 @@ Run with `pack test <your-package>`. Exit code is 1 if any test fails, 0 otherwi
 | `itWith`    | Define a test that receives a resource               |
 | `itIOWith`  | Define an IO test that receives a resource           |
 | `xit`       | Skip a test (pending)                                |
-| `xdescribe` | Skip an entire group                                 |
+| `xitIO`     | Skip an IO test (pending)                            |
+| `xdescribe` | Skip an entire group (each test reported as pending) |
 | `fit`       | Focus a test - only focused tests run when any exist |
 | `fdescribe` | Focus an entire group                                |
+| `focus`     | Focus every test in a spec (works with any combinator) |
 
 Prefix with `x` to skip, or `f` to focus:
 

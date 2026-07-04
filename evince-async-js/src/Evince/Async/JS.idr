@@ -3,7 +3,6 @@ module Evince.Async.JS
 import public Evince.Async.Spec
 import public Evince.Async.Synchronized
 import public Evince.Async.Hoist
-import public Evince.Async.Reporter
 import public Evince.Async.Shared
 
 import IO.Async

@@ -65,6 +65,7 @@ use the async cousins (from `Evince.Async.Spec`, re-exported by every driver):
 | `itAsync` | `Async e [] (TestResult ())` | `it` / `itIO` |
 | `itAsyncWith` | `a -> Async e [] (TestResult ())`, receiving the group's resource | `itWith` / `itIOWith` |
 | `itAsyncLoc` | `Async e [] (TestResult ())`, with the call-site location captured | `itLoc` / `itIOLoc` |
+| `xitAsync` | body ignored; the test is reported as pending | `xit` / `xitIO` |
 
 ```idris
 itAsync "runs in a fiber" $ do
@@ -98,7 +99,9 @@ Each driver package provides the full family, mirroring core's `runSpec*`:
 `--jobs=N` (or `{ jobs := N } defaultConfig`) bounds how many top-level groups run
 at once; `--jobs=0` runs sequentially. Tests within a group always run
 sequentially, preserving hook semantics. `beforeAll` / `beforeAllWith` setup runs
-exactly once even when groups run together - it is guarded by a lock.
+exactly once even when groups run together - it is guarded by a lock. Each
+group's output is buffered and printed as a block when the group finishes, so
+concurrent groups' lines don't interleave.
 
 ## Backend support
 

@@ -12,17 +12,22 @@ it accepts the same flags and additionally applies `--jobs`.
 
 | Flag              | Description                                     |
 |-------------------|-------------------------------------------------|
+| `--help`          | Print the flag reference and exit               |
 | `--fail-fast`     | Stop after the first failure                    |
 | `--times`         | Show per-test and total duration                |
 | `--match=PATTERN` | Run only tests whose name contains PATTERN      |
-| `--skip=PATTERN`  | Skip tests whose name contains PATTERN          |
+| `--skip=PATTERN`  | Skip tests and groups whose name contains PATTERN |
 | `--randomize`     | Shuffle test order                              |
 | `--seed=N`        | Deterministic seed for shuffle                  |
 | `--junit=FILE`    | Write JUnit XML report to FILE                  |
 | `--rerun`         | Re-run only previously failed tests             |
 | `--jobs=N`        | Run top-level groups concurrently (async driver) |
+| `--no-color`      | Disable colored output                          |
 
 Flags can be combined freely: `--rerun --fail-fast`, `--jobs=4 --times`, etc.
+Unknown or invalid arguments print a warning on stderr and are otherwise
+ignored. Colored output is also disabled when the `NO_COLOR` environment
+variable is set.
 
 ## JUnit XML
 

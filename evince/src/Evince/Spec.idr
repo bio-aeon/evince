@@ -16,9 +16,10 @@ export
 context : String -> Spec m a () -> Spec m a ()
 context = describe
 
-||| Define a test case with pure expectations.
+||| Define a test case with pure expectations. The body is lazy, so it is
+||| evaluated when the test runs, not when the spec is built.
 export
-it : Applicative m => String -> TestResult () -> Spec m a ()
+it : Applicative m => String -> Lazy (TestResult ()) -> Spec m a ()
 it label result = MkSpec [< It label Nothing (\_ => pure result)] ()
 
 ||| Define a test case with IO-based expectations.
@@ -41,7 +42,7 @@ itIOWith label f = MkSpec [< It label Nothing (\res => liftIO (f res))] ()
 |||   itLoc `(()) "test name" $ expectation
 export
 %macro
-itLoc : Applicative m => TTImp -> String -> TestResult () -> Elab (Spec m a ())
+itLoc : Applicative m => TTImp -> String -> Lazy (TestResult ()) -> Elab (Spec m a ())
 itLoc t label result = do
   let loc = fcToSrcLoc (getFC t)
   pure $ MkSpec [< It label (Just loc) (\_ => pure result)] ()
@@ -57,13 +58,33 @@ itIOLoc t label action = do
 
 ||| Mark a test as pending - the body is ignored and not executed.
 export
-xit : String -> TestResult () -> Spec m a ()
+xit : String -> Lazy (TestResult ()) -> Spec m a ()
 xit label _ = MkSpec [< Pending label Nothing] ()
 
-||| Mark an entire group as pending.
+||| Mark an IO test as pending - the body is ignored and not executed.
+export
+xitIO : String -> Lazy (IO (TestResult ())) -> Spec m a ()
+xitIO label _ = MkSpec [< Pending label Nothing] ()
+
+mutual
+  -- Every test becomes a Pending node; cleanups are dropped (their setups
+  -- will never run) and focus markers are ignored.
+  pendTree : SpecTree m a -> List (SpecTree m a)
+  pendTree (It label _ _)         = [Pending label Nothing]
+  pendTree (Describe label cs)    = [Describe label (pendTrees cs)]
+  pendTree (Pending label reason) = [Pending label reason]
+  pendTree (Focused t)            = pendTree t
+  pendTree (WithCleanup _ cs)     = pendTrees cs
+
+  pendTrees : List (SpecTree m a) -> List (SpecTree m a)
+  pendTrees []        = []
+  pendTrees (t :: ts) = pendTree t ++ pendTrees ts
+
+||| Mark an entire group as pending - every test in it is reported as
+||| pending and nothing is executed.
 export
 xdescribe : String -> Spec m a () -> Spec m a ()
-xdescribe label _ = MkSpec [< Pending label Nothing] ()
+xdescribe label body = MkSpec [< Describe label (pendTrees (getSpecTrees body))] ()
 
 ||| Alias for `xdescribe`.
 export
@@ -72,7 +93,7 @@ xcontext = xdescribe
 
 ||| Focus a test - when any focused specs exist, only focused ones run.
 export
-fit : Applicative m => String -> TestResult () -> Spec m a ()
+fit : Applicative m => String -> Lazy (TestResult ()) -> Spec m a ()
 fit label result = MkSpec [< Focused (It label Nothing (\_ => pure result))] ()
 
 ||| Focus an entire group.
@@ -84,3 +105,9 @@ fdescribe label body = MkSpec [< Focused (Describe label (getSpecTrees body))] (
 export
 fcontext : String -> Spec m a () -> Spec m a ()
 fcontext = fdescribe
+
+||| Focus every test in the given spec - composes with any test or group
+||| combinator (`itIO`, `itAsync`, `describe`, ...).
+export
+focus : Spec m a () -> Spec m a ()
+focus body = MkSpec (Lin <>< map Focused (getSpecTrees body)) ()

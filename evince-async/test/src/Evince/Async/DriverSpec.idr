@@ -34,6 +34,14 @@ driverSpec = describe "async driver" $ do
         itAsync "fails" $ pure (1 `mustBe` 2)
       pure $ s.failed `mustBe` 1
 
+    itIO "xitAsync marks the test pending without running it" $ do
+      s <- runSpecAsyncWithSummary $ do
+        itAsync "runs" $ pure (1 `mustBe` 1)
+        xitAsync "pended" $ pure (1 `mustBe` 2)
+      pure $ do
+        s.passed `mustBe` 1
+        s.pending `mustBe` 1
+
   describe "itAsyncLoc" $ do
     it "captures a source location" $
       mustBeJust (extractAsyncLoc asyncLocSpec)
