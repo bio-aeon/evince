@@ -48,7 +48,7 @@ While pre-1.0, breaking changes may land in minor releases - they are marked
 ## [0.6.0] - 2026-06-16
 
 The core became effect-polymorphic, and concurrent/parallel execution moved out
-of core into dedicated driver packages - which also unblocks the Node/JS backend.
+of core into dedicated driver packages - which also unblocks the Node backend.
 
 ### Added
 
@@ -60,7 +60,7 @@ of core into dedicated driver packages - which also unblocks the Node/JS backend
   `itAsyncWith` for native `Async` test bodies and `hoistSpec` for re-targeting
   a `Spec` from one effect monad to another.
 - **`evince-async-js`** - concurrent driver on the event loop from `async-js`
-  (Node/JS).
+  (Node).
 - **`evince-async-posix`** - true multi-core parallel driver on the thread pool
   from `async-posix` (Chez).
 - `itAsyncLoc` - source-location capture for `Async` test bodies, the `Async`
@@ -83,9 +83,9 @@ of core into dedicated driver packages - which also unblocks the Node/JS backend
 ### Removed
 
 - **Breaking:** Chez-only parallel execution left core (`Evince.Parallel`). Core
-  runs strictly sequentially on every backend now; concurrent and parallel
+  runs strictly sequentially on all supported backends now; concurrent and parallel
   execution come from the driver packages. This removes the unconditional `Mutex`
-  usage that had made core fail to build on Node/JS.
+  usage that had made core fail to build on Node.
 
 ## [0.5.0] - 2026-03-10
 

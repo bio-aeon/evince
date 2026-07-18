@@ -1,17 +1,17 @@
 # Async Drivers: Concurrent and Parallel Execution
 
-Evince's core (`evince`) runs tests sequentially on every backend. The optional
-async driver packages add concurrent or parallel execution of top-level
-`describe` groups. They expose one shared API; which package you add decides the
-execution model and the backends it runs on.
+Evince's core (`evince`) runs tests sequentially on every supported backend
+(Chez, Racket, RefC and Node). The optional async driver packages add concurrent
+or parallel execution of top-level `describe` groups. They expose one shared API;
+which package you add decides the execution model and the backends it runs on.
 
 ## The packages
 
 | Package | Event loop | Execution | Backends |
 |---|---|---|---|
-| `evince` | - | sequential | all |
+| `evince` | - | sequential | Chez, Racket, RefC, Node |
 | `evince-async` | `async` (`SyncST`) | single-threaded concurrency | Chez, Racket |
-| `evince-async-js` | `async-js` (`JS`) | single-threaded concurrency | Node/JS |
+| `evince-async-js` | `async-js` (`JS`) | single-threaded concurrency | Node |
 | `evince-async-posix` | `async-posix` (`ThreadPool`) | true multi-core parallelism | Chez |
 
 ## Concurrency vs parallelism
@@ -105,7 +105,7 @@ concurrent groups' lines don't interleave.
 
 ## Backend support
 
-| | Chez | Racket | RefC | Node/JS |
+| | Chez | Racket | RefC | Node |
 |---|---|---|---|---|
 | `evince` (sequential) | yes | yes | yes | yes |
 | `evince-async` (concurrency) | yes | yes | no | - |
@@ -114,13 +114,16 @@ concurrent groups' lines don't interleave.
 
 `-` = not applicable; `no` = targeted but not yet supported (see below).
 
+"Node" means the `node` codegen; the browser `javascript` codegen is not
+supported - the runner needs a filesystem, `getArgs` and an exit code.
+
 `evince-async` covers Chez and Racket but not RefC - its `caswrite1` lock has no
 RefC backend.
 
 True multi-core parallelism currently works on Chez only. Racket's `fork` is
 green-threaded (no parallelism) and its codegen rejects `async-posix`'s poll FFI;
 RefC's threading is unimplemented. On Racket use `evince-async` (concurrency) or
-core; on RefC use core (sequential). JS has no OS threads, so `evince-async-js`
+core; on RefC use core (sequential). Node has no OS threads, so `evince-async-js`
 is concurrency-only by construction.
 
 The posix worker pool sizes itself to the processor count by default; set
