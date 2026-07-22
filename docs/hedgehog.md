@@ -39,8 +39,29 @@ spec = describe "Arithmetic" $ do
 
 ## API
 
-| Function  | Description                                  |
-|-----------|----------------------------------------------|
-| `prop`    | Embed a hedgehog `Property`                  |
-| `itProp`  | Embed a `PropertyT ()` (wraps in `property`) |
-| `itProp1` | Embed a single-run property                  |
+| Function      | Description                                          |
+|---------------|------------------------------------------------------|
+| `prop`        | Embed a hedgehog `Property`                          |
+| `itProp`      | Embed a `PropertyT ()` (wraps in `property`)         |
+| `itProp1`     | Embed a single-run property                          |
+| `runProperty` | Run a `Property` silently, returning a `TestResult`  |
+
+## Failure output
+
+Failures are reported through evince's own reporter, carrying hedgehog's full
+report - the shrunk counterexample, diff and recheck seed - under the test's
+label:
+
+```
+✗ equality
+    ✗ equality failed after 1 test.
+
+      ━━━ Failed (- lhs) (+ rhs) ━━━
+      - "1"
+      + "2"
+
+      This failure can be reproduced by running:
+      > recheck 0 (rawStdGen 8380056012993154136 11102715057609136849) equality
+```
+
+Hedgehog itself prints nothing to the terminal.

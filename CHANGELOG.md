@@ -10,6 +10,17 @@ While pre-1.0, breaking changes may land in minor releases - they are marked
 
 ## [Unreleased]
 
+### Added
+
+- `evince-hedgehog`: `runProperty` - run a `Property` silently, returning a
+  `TestResult`.
+
+### Changed
+
+- `evince-hedgehog`: property failures now show hedgehog's shrunk
+  counterexample, diff and recheck seed under the test's label; hedgehog itself
+  no longer prints to the terminal.
+
 ## [0.7.0] - 2026-07-04
 
 ### Added
