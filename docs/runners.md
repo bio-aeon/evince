@@ -61,3 +61,7 @@ concurrently - or, with `evince-async-posix`, in true parallel. See
 A test body that crashes the runtime (e.g. a failing FFI call) aborts the whole
 run rather than being recorded as a failure - Idris has no portable way to catch
 such a crash across backends.
+
+Under `--jobs` with `--fail-fast`, a group cancelled mid-test skips its
+remaining `afterAll` cleanups - the runner reaches cleanup in normal control
+flow only.

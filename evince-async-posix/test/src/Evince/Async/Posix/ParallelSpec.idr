@@ -1,10 +1,13 @@
 module Evince.Async.Posix.ParallelSpec
 
 import Data.IORef
+import Data.List
+import System
 import System.Clock
 import IO.Async
 import IO.Async.Loop.Posix
 import Evince
+import Evince.Report
 import Evince.Async.Posix
 
 -- Disambiguate from Data.Linear.Ref1's deprecated newIORef, pulled in by IO.Async.
@@ -29,9 +32,48 @@ cpuGroups n = do
   describe "g3" $ itAsync "w" $ do cede; pure (spin 0 n `mustEqual` tri n)
   describe "g4" $ itAsync "w" $ do cede; pure (spin 0 n `mustEqual` tri n)
 
+-- Drive the worker pool directly on the posix loop, discarding reporter output.
+runPoolPosix : RunConfig -> Spec (Async Poll []) () () -> IO EvalResult
+runPoolPosix cfg spec = do
+  out <- newIORef Nothing
+  simpleApp $ do
+    lock     <- liftIO newLock
+    abortRef <- liftIO (newIORef False)
+    let silent = MkReporter (\_ => pure ())
+    r <- evalAsyncForest silent lock cfg abortRef (getSpecTrees spec)
+    liftIO (writeIORef out (Just r))
+  Just r <- readIORef out
+    | Nothing => die "evince-async-posix-test: the event loop ended before the pool returned"
+  pure r
+
+-- One failing group plus four quick passing groups; the per-iteration `cede`
+-- jitter sweeps different cancellation interleavings.
+soakSpec : Nat -> Spec (Async Poll []) () ()
+soakSpec i = do
+  describe "boom" $ do
+    itAsync "pre" $ pure (1 `mustBe` 1)
+    itAsync "fail" $ do
+      sequence_ (replicate (i `mod` 5) cede)
+      pure (1 `mustBe` 2)
+  for_ [1 .. 4] $ \g =>
+    describe "g\{show g}" $
+      for_ [1 .. 4] $ \t =>
+        itAsync "t\{show t}" $ do
+          sequence_ (replicate ((g + t + i) `mod` 4) cede)
+          pure (1 `mustBe` 1)
+
 export
 posixSpec : Spec IO () ()
 posixSpec = describe "evince-async-posix" $ do
+  describe "fail-fast cancellation soak" $ do
+    itIO "reports each test at most once across repeated cancelled runs" $ do
+      results <- for [0 .. 24] $ \i => do
+        r <- runPoolPosix ({ jobs := 4, failFast := True } defaultConfig) (soakSpec i)
+        let paths = map (.path) (snd r <>> [])
+        pure (i, (fst r).failed, length paths `minus` length (nub paths))
+      let bad = filter (\(_, f, dups) => f /= 1 || dups /= 0) results
+      pure $ bad `mustEqual` []
+
   describe "multi-threaded execution" $ do
     itIO "runs groups concurrently and collects all results" $ do
       let cfg = { jobs := 4 } defaultConfig

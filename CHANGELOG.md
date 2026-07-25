@@ -10,6 +10,8 @@ While pre-1.0, breaking changes may land in minor releases - they are marked
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-25
+
 ### Added
 
 - `evince-hedgehog`: `runProperty` - run a `Property` silently, returning a
@@ -20,6 +22,13 @@ While pre-1.0, breaking changes may land in minor releases - they are marked
 - `evince-hedgehog`: property failures now show hedgehog's shrunk
   counterexample, diff and recheck seed under the test's label; hedgehog itself
   no longer prints to the terminal.
+- Under `--jobs`, groups are scheduled through a sliding window instead of
+  batches - a slow group no longer stalls the groups after it.
+- Under `--jobs`, `--fail-fast` now cancels in-flight groups: their partial
+  output is flushed, their completed tests keep their results, and the console
+  notes the aborted run.
+- **Breaking:** `Event` gained a `SuiteAborted` constructor, emitted by the
+  async drivers when fail-fast cancels the run.
 
 ## [0.7.0] - 2026-07-04
 

@@ -89,4 +89,5 @@ consoleReporter cfg = MkReporter $ \e => liftIO $ case e of
   GroupDone _             => pure ()
   TestDone report lvl     => printTestDone cfg report lvl
   PendingTest label reason lvl => printPending cfg label reason lvl
+  SuiteAborted            => putStrLn $ yellow cfg "run aborted by --fail-fast after the first failure"
   SuiteDone summary       => printSummary cfg summary

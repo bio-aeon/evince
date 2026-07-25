@@ -11,6 +11,7 @@ data Event
   | GroupDone String
   | TestDone TestReport Nat
   | PendingTest String (Maybe String) Nat
+  | SuiteAborted
   | SuiteDone Summary
 
 ||| A reporter consumes events emitted by the runner, in the runner's monad `m`.

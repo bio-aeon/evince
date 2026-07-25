@@ -1,6 +1,7 @@
 module Evince.Async.Shared
 
 import Data.IORef
+import Data.Linear.Ref1
 import Data.List
 import System
 import IO.Async
@@ -13,19 +14,11 @@ import Evince.Runner
 import Evince.Synchronized
 import Evince.Async.Synchronized
 
--- `IORef` is ambiguous here: IO.Async re-exports Data.Linear.Ref1's IORef,
--- but core's runner hands us a base Data.IORef cell.
+||| The fail-fast abort flag threaded through the runner - a base `Data.IORef`
+||| cell (not the `IORef` that IO.Async re-exports from Data.Linear.Ref1).
+public export
 0 AbortRef : Type
 AbortRef = Data.IORef.IORef Bool
-
--- Split a list into runs of at most `n` elements (`n >= 1`).
-chunksOf : Nat -> List a -> List (List a)
-chunksOf Z     xs = [xs]
-chunksOf (S k) xs = go xs
-  where
-    go : List a -> List (List a)
-    go []          = []
-    go ys@(_ :: _) = let (h, t) = splitAt (S k) ys in h :: go (assert_smaller ys t)
 
 -- Guard every event with the lock so events emitted from different fibers
 -- can't interleave.
@@ -33,11 +26,14 @@ lockedReporter : Reporter (Async e []) -> Lock (Async e []) -> Reporter (Async e
 lockedReporter base lock = MkReporter (\ev => lock.withLock (base.onEvent ev))
 
 ||| Evaluate the top-level groups, running up to `cfg.jobs` of them
-||| concurrently. `jobs = 0` falls back to core's sequential walk; otherwise
-||| each batch of `jobs` groups is run together, with an abort
-||| check between batches so `--fail-fast` still short-circuits. A concurrent
-||| group's events are buffered and replayed under the lock when the group
-||| finishes, so groups' output never interleaves.
+||| concurrently. `jobs = 0` falls back to core's sequential walk; otherwise a
+||| pool of `jobs` workers claims groups from a shared queue as slots free up
+||| (sliding window - a slow group never stalls the ones after it). Under
+||| `--fail-fast` the first failure also cancels the in-flight groups: their
+||| partial output is flushed, their completed tests keep their results, and a
+||| `SuiteAborted` event notes that the run was cut short. A concurrent group's
+||| events are buffered and replayed under the lock when the group finishes, so
+||| groups' output never interleaves.
 export
 evalAsyncForest :
      Reporter (Async e [])
@@ -49,27 +45,102 @@ evalAsyncForest :
 evalAsyncForest base lock cfg abortRef trees =
   case cfg.jobs of
     Z   => evalForest (lockedReporter base lock) cfg abortRef [] trees 0
-    S k => go emptyResult (chunksOf (S k) trees)
+    S k => do
+      queue       <- newref trees
+      results     <- newref emptyResult
+      cancelled   <- newref False
+      interrupted <- newref False
+      registry    <- newref (the (List (Nat, Fiber [] ())) [])
+      let idxs = workerIds (min (S k) (length trees))
+      fibs <- traverse (\i => start (worker queue results cancelled registry interrupted i)) idxs
+      writeref registry (zip idxs fibs)
+      traverse_ wait fibs
+      unclaimed <- readref queue
+      cut       <- readref interrupted
+      when (cut || not (null unclaimed)) (lock.withLock (base.onEvent SuiteAborted))
+      readref results
   where
-    runGroup : SpecTree (Async e []) () -> Async e [] EvalResult
-    runGroup t = do
-      buf <- liftIO (newIORef (the (SnocList Event) [<]))
-      let buffered = MkReporter (\ev => liftIO (modifyIORef buf (:< ev)))
-      r <- evalTree buffered cfg abortRef [] t 0
-      evs <- liftIO (readIORef buf)
-      lock.withLock (traverse_ base.onEvent (evs <>> []))
-      pure r
+    workerIds : Nat -> List Nat
+    workerIds Z     = []
+    workerIds (S m) = [0 .. m]
 
-    go : EvalResult -> List (List (SpecTree (Async e []) ())) -> Async e [] EvalResult
-    go acc []              = pure acc
-    go acc (chunk :: rest) = do
-      stop <- liftIO (readIORef abortRef)
-      if stop
-        then pure acc
-        else do
-          results <- parseq (map runGroup chunk)
-          let merged = maybe emptyResult (foldl mergeResults emptyResult) results
-          go (mergeResults acc merged) rest
+    toSummary : TestReport -> Summary
+    toSummary rep = case rep.outcome of
+      Passed d   => MkSummary 1 0 0 d
+      Failed _ d => MkSummary 0 1 0 d
+      Skipped _  => MkSummary 0 0 1 0
+
+    -- A cancelled group's buffer is the source of truth: the results of its
+    -- completed tests are recovered from the buffered events.
+    partialResult : List Event -> EvalResult
+    partialResult evs =
+      let reps = mapMaybe (\case TestDone rep _ => Just rep; _ => Nothing) evs
+      in (foldMap toSummary reps, Lin <>< reps)
+
+    deposit : Ref World EvalResult -> EvalResult -> Async e [] ()
+    deposit results r = runIO $ casupdate1 results (\acc => (mergeResults acc r, ()))
+
+    runGroup : Ref World EvalResult -> Ref World Bool -> SpecTree (Async e []) () -> Async e [] ()
+    runGroup results interrupted t = do
+      buf  <- liftIO (newIORef (the (SnocList Event) [<]))
+      done <- liftIO (newIORef False)
+      let buffered = MkReporter (\ev => liftIO (modifyIORef buf (:< ev)))
+          flush : Async e [] (List Event)
+          flush = do
+            evs <- liftIO (readIORef buf)
+            let l = evs <>> []
+            lock.withLock (traverse_ base.onEvent l)
+            pure l
+      onCancel
+        (do r <- evalTree buffered cfg abortRef [] t 0
+            -- Masked so a fiber is never cancelled while holding the reporter
+            -- lock (the cancel finalizer flushes too, and the lock is not
+            -- reentrant).
+            uncancelable $ \_ => do
+              ignore flush
+              deposit results r
+              liftIO (writeIORef done True))
+        -- A cancel requested during the masked tail is observed right after
+        -- it, with the group already flushed and deposited - the finalizer
+        -- must be a no-op then, or the group would be counted twice.
+        (do d <- liftIO (readIORef done)
+            when (not d) $ do
+              writeref interrupted True
+              evs <- flush
+              deposit results (partialResult evs))
+
+    claim : Ref World (List (SpecTree (Async e []) ())) -> Async e [] (Maybe (SpecTree (Async e []) ()))
+    claim queue = runIO $ casupdate1 queue $ \case
+      []        => ([], Nothing)
+      (t :: ts) => (ts, Just t)
+
+    worker :
+         Ref World (List (SpecTree (Async e []) ()))
+      -> Ref World EvalResult
+      -> Ref World Bool
+      -> Ref World (List (Nat, Fiber [] ()))
+      -> Ref World Bool
+      -> Nat
+      -> Async e [] ()
+    worker queue results cancelled registry interrupted me = loop
+      where
+        -- Only the first observer cancels, so siblings are cancelled once.
+        cancelSiblings : Async e [] ()
+        cancelSiblings = do
+          won <- runIO (caswrite1 cancelled False True)
+          when won $ do
+            fibs <- readref registry
+            traverse_ (\(i, f) => when (i /= me) (cancel f)) fibs
+
+        loop : Async e [] ()
+        loop = do
+          stop <- liftIO (readIORef abortRef)
+          if stop then cancelSiblings else do
+            Just t <- claim queue
+              | Nothing => pure ()
+            runGroup results interrupted t
+            st <- liftIO (readIORef abortRef)
+            if st then cancelSiblings else loop
 
 ||| Run a spec on a caller-supplied event loop and return the full result.
 ||| The `runLoop` argument is the backend's `Async` runner (`syncApp` for the
