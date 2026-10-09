@@ -10,6 +10,12 @@ While pre-1.0, breaking changes may land in minor releases - they are marked
 
 ## [Unreleased]
 
+### Fixed
+
+- `--randomize` no longer takes minutes on Node and RefC: the shuffle index is
+  computed on Integer instead of Nat. Permutations for a given seed are
+  unchanged.
+
 ## [0.8.0] - 2026-07-25
 
 ### Added

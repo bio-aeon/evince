@@ -14,9 +14,8 @@ shuffleVect : {n : Nat} -> Nat -> Vect n a -> Vect n a
 shuffleVect {n = 0}     _    xs = xs
 shuffleVect {n = 1}     _    xs = xs
 shuffleVect {n = S k}   seed xs =
-  let idx = seed `mod` (S k)
-      i   = restrict k (cast idx)
-      xs' = swapFin FZ i xs
+  let i     = restrict k (cast seed)
+      xs'   = swapFin FZ i xs
       seed' = lcg seed
   in head xs' :: shuffleVect seed' (tail xs')
   where
