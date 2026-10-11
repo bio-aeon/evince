@@ -3,6 +3,8 @@ module Evince.Core
 import Data.SnocList
 import public Decidable.Equality
 import public Evince.SrcLoc
+import public Control.Monad.Trans
+import public Control.Monad.Identity
 
 %default total
 
@@ -94,6 +96,85 @@ Monad TestResult where
   (Fail info)   >>= _ = Fail info
   (Skip reason) >>= _ = Skip reason
 
+||| A chain of expectations in an inner monad `m`: `>>=` stops at the first
+||| `Fail` or `Skip`, so a test body of several expectations reports its
+||| first failure. Plain `m` actions enter via `lift`/`liftIO`, a plain
+||| `TestResult` via `liftResult`; `runTestResultT` runs the chain.
+public export
+data TestResultT : (Type -> Type) -> Type -> Type where
+  MkTestResultT : m (TestResult a) -> TestResultT m a
+
+||| Run a chain in its inner monad, producing its final result.
+export
+runTestResultT : TestResultT m a -> m (TestResult a)
+runTestResultT (MkTestResultT x) = x
+
+export
+Functor m => Functor (TestResultT m) where
+  map f (MkTestResultT x) = MkTestResultT (map (map f) x)
+
+export
+Monad m => Applicative (TestResultT m) where
+  pure = MkTestResultT . pure . Pass
+  (MkTestResultT mf) <*> (MkTestResultT mx) = MkTestResultT $ do
+    Pass f <- mf
+      | Fail i => pure (Fail i)
+      | Skip r => pure (Skip r)
+    map (map f) mx
+
+export
+Monad m => Monad (TestResultT m) where
+  (MkTestResultT mx) >>= f = MkTestResultT $ do
+    Pass x <- mx
+      | Fail i => pure (Fail i)
+      | Skip r => pure (Skip r)
+    runTestResultT (f x)
+
+export
+MonadTrans TestResultT where
+  lift = MkTestResultT . map Pass
+
+export
+HasIO m => HasIO (TestResultT m) where
+  liftIO = lift . liftIO
+
+||| Run a chain that performs no effects, e.g. to compare a custom
+||| expectation's result against `Pass`, `Fail` or `Skip`.
+export
+runPure : TestResultT Identity a -> TestResult a
+runPure = runIdentity . runTestResultT
+
+||| Lift a plain result into a chain, e.g. a custom expectation built from
+||| `Pass` and `Fail`.
+export
+liftResult : Applicative m => TestResult a -> TestResultT m a
+liftResult = MkTestResultT . pure
+
+||| Lift an `IO` chain into a chain over any monad that can run IO.
+export
+hoistIO : HasIO m => TestResultT IO a -> TestResultT m a
+hoistIO = MkTestResultT . liftIO . runTestResultT
+
+||| Lifts a body written in monad `n` into a spec over monad `m`. A chain in
+||| the spec's own monad runs as it is, an `IO` chain through `liftIO`, and a
+||| body whose monad nothing else fixes runs in the spec's monad.
+public export
+interface Hoist (0 n : Type -> Type) (0 m : Type -> Type) where
+  hoistChain : TestResultT n a -> TestResultT m a
+
+public export
+HasIO m => Hoist IO m where
+  hoistChain = hoistIO
+
+||| The fallback that runs a body in the spec's own monad.
+%defaulthint
+public export
+SameMonad : Hoist m m
+SameMonad = Same
+  where
+    [Same] Hoist m m where
+      hoistChain = id
+
 -- `m` is the test-action monad.
 public export
 data SpecTree : (m : Type -> Type) -> Type -> Type where
@@ -104,8 +185,6 @@ data SpecTree : (m : Type -> Type) -> Type -> Type where
   WithCleanup : (cleanup : m ()) -> (children : List (SpecTree m a)) -> SpecTree m a
 
 -- SnocList gives O(1) appending per describe/it in a do-block.
--- Idris 2 resolves the correct monad (Spec vs TestResult) via
--- type-directed elaboration based on the expected return type.
 public export
 data Spec : (m : Type -> Type) -> Type -> Type -> Type where
   MkSpec : SnocList (SpecTree m a) -> b -> Spec m a b

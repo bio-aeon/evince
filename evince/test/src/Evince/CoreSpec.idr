@@ -19,8 +19,8 @@ coreSpec = do
           `mustBe` Skip Nothing
 
       it "stops at first failure in a do-block" $
-        (do 1 `mustBe` 2
-            mustFail "should not reach here")
+        runPure (do 1 `mustBe` 2
+                    mustFail "should not reach here")
           `mustBe` Fail (ExpectedButGot "not equal" "2" "1")
 
   describe "Summary" $ do

@@ -1,27 +1,28 @@
 module Evince.Hedgehog
 
 import Evince.Core
+import Evince.Expectations
 import Evince.Spec
 import Hedgehog
 
 %default covering
 
-||| Run a property silently and return the outcome as a TestResult. A failure
-||| carries hedgehog's report - the shrunk counterexample, diff and recheck
-||| seed - under the given test label.
+||| Run a property silently as a `TestResultT IO` chain. A failure carries
+||| hedgehog's report - the shrunk counterexample, diff and recheck seed -
+||| under the given test label.
 export
-runProperty : String -> Property -> IO (TestResult ())
+runProperty : String -> Property -> TestResultT IO ()
 runProperty label p = do
-  seed <- initSeed
-  rep  <- checkReport p.config Nothing seed p.test (\_ => pure ())
-  pure $ case rep.status of
-    OK       => Pass ()
-    Failed _ => Fail (Reason (renderResult DisableColor (Just (fromString label)) rep))
+  seed <- liftIO initSeed
+  rep  <- liftIO $ checkReport p.config Nothing seed p.test (\_ => pure ())
+  case rep.status of
+    OK       => pure ()
+    Failed _ => mustFail (renderResult DisableColor (Just (fromString label)) rep)
 
 ||| Embed a hedgehog Property as an evince test case.
 export
 prop : HasIO m => String -> Property -> Spec m a ()
-prop label p = itIO label (runProperty label p)
+prop label p = it label (runProperty label p)
 
 ||| Embed a PropertyT action (wraps in `property`).
 export

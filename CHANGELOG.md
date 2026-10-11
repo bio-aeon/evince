@@ -10,6 +10,29 @@ While pre-1.0, breaking changes may land in minor releases - they are marked
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-11
+
+### Added
+
+- `TestResultT` (`Evince.Core`) - a test body as a chain of expectations that
+  stops at the first failure or skip; `runTestResultT`, `runPure`,
+  `liftResult`, `hoistIO`.
+- `mustEqualBy` - compare two values by a custom relation instead of `Eq`.
+
+### Changed
+
+- **Breaking:** every test body is a `TestResultT m ()` chain in the spec's
+  monad and every expectation returns one: `do v <- act; pure (v `mustBe` x)`
+  becomes `v <- liftIO act; v `mustBe` x`, and a custom expectation is
+  `Monad m => ... -> TestResultT m ()`.
+- **Breaking:** `mustReturn`/`mustReturnEqual` take an action in any monad;
+  `mustError`/`mustErrorWith` and `runProperty` return `TestResultT IO ()`.
+- **Breaking:** the `Async` cousins (`itAsync`, `itAsyncWith`, `xitAsync`,
+  `itAsyncLoc`, module `Evince.Async.Spec`) and the IO cousins (`itIO`,
+  `itIOWith`, `itIOLoc`, `xitIO`) are gone. Write `it`, `itWith`, `xit` and
+  `itLoc`: they also take an `IO` chain in any spec and lift it, through the
+  new `Hoist` interface.
+
 ### Fixed
 
 - `--randomize` no longer takes minutes on Node and RefC: the shuffle index is

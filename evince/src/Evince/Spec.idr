@@ -16,55 +16,33 @@ export
 context : String -> Spec m a () -> Spec m a ()
 context = describe
 
-||| Define a test case with pure expectations. The body is lazy, so it is
-||| evaluated when the test runs, not when the spec is built.
+||| Define a test case. The body chains expectations in the spec's own monad
+||| `m`, or in `IO`, which is lifted into `m`; plain actions enter via
+||| `lift`/`liftIO`. The body is evaluated when the test runs, not when the
+||| spec is built.
 export
-it : Applicative m => String -> Lazy (TestResult ()) -> Spec m a ()
-it label result = MkSpec [< It label Nothing (\_ => pure result)] ()
-
-||| Define a test case with IO-based expectations.
-export
-itIO : HasIO m => String -> IO (TestResult ()) -> Spec m a ()
-itIO label action = MkSpec [< It label Nothing (\_ => liftIO action)] ()
+it : Hoist n m => String -> Lazy (TestResultT n ()) -> Spec m a ()
+it label body = MkSpec [< It label Nothing (\_ => runTestResultT (hoistChain body))] ()
 
 ||| Define a test case that receives the resource.
 export
-itWith : Applicative m => String -> (a -> TestResult ()) -> Spec m a ()
-itWith label f = MkSpec [< It label Nothing (\res => pure (f res))] ()
-
-||| Define an IO test case that receives the resource.
-export
-itIOWith : HasIO m => String -> (a -> IO (TestResult ())) -> Spec m a ()
-itIOWith label f = MkSpec [< It label Nothing (\res => liftIO (f res))] ()
+itWith : Hoist n m => String -> (a -> TestResultT n ()) -> Spec m a ()
+itWith label f = MkSpec [< It label Nothing (runTestResultT . hoistChain . f)] ()
 
 ||| Define a test with source location captured at the call site.
 ||| Pass a dummy quasiquoted value as the first argument:
 |||   itLoc `(()) "test name" $ expectation
 export
 %macro
-itLoc : Applicative m => TTImp -> String -> Lazy (TestResult ()) -> Elab (Spec m a ())
-itLoc t label result = do
+itLoc : Hoist n m => TTImp -> String -> Lazy (TestResultT n ()) -> Elab (Spec m a ())
+itLoc t label body = do
   let loc = fcToSrcLoc (getFC t)
-  pure $ MkSpec [< It label (Just loc) (\_ => pure result)] ()
-
-||| Define an IO test with source location captured at the call site.
-|||   itIOLoc `(()) "test name" $ ioAction
-export
-%macro
-itIOLoc : HasIO m => TTImp -> String -> IO (TestResult ()) -> Elab (Spec m a ())
-itIOLoc t label action = do
-  let loc = fcToSrcLoc (getFC t)
-  pure $ MkSpec [< It label (Just loc) (\_ => liftIO action)] ()
+  pure $ MkSpec [< It label (Just loc) (\_ => runTestResultT (hoistChain body))] ()
 
 ||| Mark a test as pending - the body is ignored and not executed.
 export
-xit : String -> Lazy (TestResult ()) -> Spec m a ()
+xit : Hoist n m => String -> Lazy (TestResultT n ()) -> Spec m a ()
 xit label _ = MkSpec [< Pending label Nothing] ()
-
-||| Mark an IO test as pending - the body is ignored and not executed.
-export
-xitIO : String -> Lazy (IO (TestResult ())) -> Spec m a ()
-xitIO label _ = MkSpec [< Pending label Nothing] ()
 
 mutual
   -- Every test becomes a Pending node; cleanups are dropped (their setups
@@ -93,8 +71,8 @@ xcontext = xdescribe
 
 ||| Focus a test - when any focused specs exist, only focused ones run.
 export
-fit : Applicative m => String -> Lazy (TestResult ()) -> Spec m a ()
-fit label result = MkSpec [< Focused (It label Nothing (\_ => pure result))] ()
+fit : Hoist n m => String -> Lazy (TestResultT n ()) -> Spec m a ()
+fit label body = MkSpec [< Focused (It label Nothing (\_ => runTestResultT (hoistChain body)))] ()
 
 ||| Focus an entire group.
 export
@@ -107,7 +85,7 @@ fcontext : String -> Spec m a () -> Spec m a ()
 fcontext = fdescribe
 
 ||| Focus every test in the given spec - composes with any test or group
-||| combinator (`itIO`, `itAsync`, `describe`, ...).
+||| combinator (`it`, `itWith`, `describe`, ...).
 export
 focus : Spec m a () -> Spec m a ()
 focus body = MkSpec (Lin <>< map Focused (getSpecTrees body)) ()

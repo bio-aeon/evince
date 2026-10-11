@@ -1,6 +1,8 @@
 # Expectations
 
-Pure functions returning `TestResult ()` (or `IO (TestResult ())` for IO variants).
+Expectations are statements of a test body: each returns `TestResultT m ()`,
+and several chain in one `it` (see [Chaining](#chaining)). Running a chain
+yields a `TestResult`: `Pass`, `Fail` or `Skip`.
 
 ## Equality
 
@@ -9,11 +11,26 @@ Pure functions returning `TestResult ()` (or `IO (TestResult ())` for IO variant
 | `mustBe`       | `DecEq, Show` | Decidable equality (primary assertion)   |
 | `mustNotBe`    | `DecEq, Show` | Decidable inequality                     |
 | `mustEqual`    | `Eq, Show`    | Boolean equality (fallback for `Double`) |
+| `mustEqualBy`  | `Show`        | Comparison by a custom relation          |
 | `mustNotEqual` | `Eq, Show`    | Boolean inequality                       |
 
 `mustBe` uses `DecEq` (decidable equality) - constructive proof that values are
 equal or not. This is idiomatic Idris 2. `mustEqual` exists as a fallback for
 types like `Double` that have `Eq` but not `DecEq`.
+
+`mustEqualBy` takes the relation as a plain argument, for comparisons no `Eq`
+instance can express - approximate equality, or an exact-but-NaN-reflexive
+relation. NaN is not reflexive under `Eq`, so `mustEqual nan nan` fails while
+printing two identical values.
+
+```idris
+approx : Double -> Double -> Bool
+approx x y = abs (x - y) < 1.0e-9
+
+it "produces the pre-calculated cdf value" $ do
+  v <- liftIO $ cdf gaussian (tensor [[-1.5]])
+  mustEqualBy approx v 0.04779036
+```
 
 ## Predicates
 
@@ -44,17 +61,18 @@ types like `Double` that have `Eq` but not `DecEq`.
 | `mustBeEmpty`    | Passes if list is empty                      |
 | `mustNotBeEmpty` | Passes if list is non-empty                  |
 
-## IO
+## Actions
 
-| Function           | Constraint    | Description                                      |
-|--------------------|---------------|--------------------------------------------------|
-| `mustReturn`       | `DecEq, Show` | Passes if IO action returns decidably equal value |
-| `mustReturnEqual`  | `Eq, Show`    | Passes if IO action returns equal value via `Eq`  |
+| Function           | Constraint    | Description                                          |
+|--------------------|---------------|------------------------------------------------------|
+| `mustReturn`       | `DecEq, Show` | Passes if the action returns a decidably equal value |
+| `mustReturnEqual`  | `Eq, Show`    | Passes if the action returns an equal value via `Eq` |
 
-Used with `itIO`:
+The action runs in the chain's monad - `IO` in any spec, `Async` in an `Async`
+spec:
 
 ```idris
-itIO "reads the config file" $
+it "reads the config file" $
   readConfig "test.toml" `mustReturn` expectedConfig
 ```
 
@@ -63,16 +81,17 @@ itIO "reads the config file" $
 | Function         | Constraint              | Description                                      |
 |------------------|-------------------------|--------------------------------------------------|
 | `tryApp`         | -                       | Run `App (err :: Init) a` as `IO (Either err a)` |
-| `mustError`      | `Show err`              | Passes if the `App` computation throws           |
+| `mustError`      | -                       | Passes if the `App` computation throws           |
 | `mustErrorWith`  | `Show err, DecEq err`   | Passes if the error matches the expected value   |
 
-Used with `itIO`:
+`mustError` and `mustErrorWith` return an `IO` chain, which `it` lifts into
+any spec:
 
 ```idris
-itIO "rejects negative transfer" $
+it "rejects negative transfer" $
   mustError (transfer (-100))
 
-itIO "rejects with InvalidAmount" $
+it "rejects with InvalidAmount" $
   mustErrorWith (transfer (-100)) (InvalidAmount (-100))
 ```
 
@@ -84,12 +103,46 @@ itIO "rejects with InvalidAmount" $
 | `pending`     | Marks a test as pending (skipped)            |
 | `pendingWith` | Marks a test as pending with a reason        |
 
-## Chaining Expectations
+## Chaining
 
-Multiple expectations in a single test short-circuit on first failure:
+Several expectations in one test stop at the first failure or skip:
 
 ```idris
 it "validates a user" $ do
   user.age `mustBe` 25
-  user.name `mustBe` "Alice"    -- skipped if age check fails
+  user.name `mustBe` "Alice"    -- skipped if the age check fails
+```
+
+Action-shaped expectations (`mustReturn`, `mustError`) are statements like any
+other; plain actions enter with `lift` or `liftIO`, and base's
+`HasIO`-polymorphic primitives (`newIORef`, `readFile`, `putStrLn`, ...) need
+neither:
+
+```idris
+it "transfers between accounts and leaves balances consistent" $ do
+  (alice, bob) <- liftIO (openAccounts 100 0)   -- a plain IO action
+  transfer 30 alice bob `mustReturn` 70         -- an IO-shaped expectation
+  lift $ audit "transfer done"                  -- a plain action
+  balance <- readBalance bob                    -- HasIO-polymorphic: no lift
+  balance `mustBe` 30
+```
+
+### Custom expectations
+
+Write helpers polymorphically, so they fit any spec:
+
+```idris
+mustBeAdult : Monad m => User -> TestResultT m ()
+mustBeAdult u = do
+  u.age `mustSatisfy` (>= 18)
+  u.name `mustNotBe` ""
+```
+
+A plain `TestResult ()` value - `Pass ()`, `Fail info` - enters a chain
+through `liftResult`. `runPure` runs an effect-free chain, e.g. to unit-test
+a helper:
+
+```idris
+it "accepts an adult" $
+  runPure (mustBeAdult alice) `mustBe` Pass ()
 ```

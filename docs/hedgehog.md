@@ -44,7 +44,7 @@ spec = describe "Arithmetic" $ do
 | `prop`        | Embed a hedgehog `Property`                          |
 | `itProp`      | Embed a `PropertyT ()` (wraps in `property`)         |
 | `itProp1`     | Embed a single-run property                          |
-| `runProperty` | Run a `Property` silently, returning a `TestResult`  |
+| `runProperty` | Run a `Property` silently as an `IO` chain           |
 
 ## Failure output
 

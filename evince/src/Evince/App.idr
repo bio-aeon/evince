@@ -11,18 +11,18 @@ tryApp act = run $ handle act (\ok => pure (Right ok)) (\e => pure (Left e))
 
 ||| Passes if the App computation produces an error of the expected type.
 export covering
-mustError : Show err => App (err :: Init) a -> IO (TestResult ())
+mustError : App (err :: Init) a -> TestResultT IO ()
 mustError act = do
-  result <- tryApp act
+  result <- lift (tryApp act)
   case result of
-    Left _  => pure (Pass ())
-    Right _ => pure (Fail (Reason "expected error but succeeded"))
+    Left _  => pure ()
+    Right _ => mustFail "expected error but succeeded"
 
 ||| Passes if the App computation produces the specific error value.
 export covering
-mustErrorWith : (Show err, DecEq err) => App (err :: Init) a -> err -> IO (TestResult ())
+mustErrorWith : (Show err, DecEq err) => App (err :: Init) a -> err -> TestResultT IO ()
 mustErrorWith act expected = do
-  result <- tryApp act
+  result <- lift (tryApp act)
   case result of
-    Left e  => pure (e `mustBe` expected)
-    Right _ => pure (Fail (Reason "expected error but succeeded"))
+    Left e  => e `mustBe` expected
+    Right _ => mustFail "expected error but succeeded"

@@ -51,12 +51,9 @@ Run with `pack test <your-package>`. Exit code is 1 if any test fails, 0 otherwi
 |-------------|------------------------------------------------------|
 | `describe`  | Group related specs under a label                    |
 | `context`   | Alias for `describe`                                 |
-| `it`        | Define a test with pure expectations                 |
-| `itIO`      | Define a test with `IO`-based expectations           |
+| `it`        | Define a test in the spec's monad or in `IO`         |
 | `itWith`    | Define a test that receives a resource               |
-| `itIOWith`  | Define an IO test that receives a resource           |
 | `xit`       | Skip a test (pending)                                |
-| `xitIO`     | Skip an IO test (pending)                            |
 | `xdescribe` | Skip an entire group (each test reported as pending) |
 | `fit`       | Focus a test - only focused tests run when any exist |
 | `fdescribe` | Focus an entire group                                |
@@ -77,8 +74,8 @@ spec = describe "Feature" $ do
     2 `mustBe` 2
 ```
 
-`Async`-bodied tests (`itAsync` / `itAsyncWith`) come from the async driver
-packages rather than core - see [Async drivers](docs/async.md).
+`Async`-bodied tests run under the async driver packages and are written with
+`it` - see [Async drivers](docs/async.md).
 
 ## Output
 
@@ -111,7 +108,7 @@ Parser
 | [Hooks](docs/hooks.md) | `before`, `after`, `beforeAll`, `provide`, `beforeWith`, resource-passing |
 | [Runners](docs/runners.md) | `runSpec`, `runSpecFailFast`, `runSpecWith`, `runSpecWithArgs`, ... |
 | [CLI Options](docs/cli.md) | `--fail-fast`, `--match`, `--skip`, `--jobs`, `--junit`, `--rerun`, ... |
-| [Source Locations](docs/source-locations.md) | `itLoc`/`itIOLoc` - capture file and line via elaborator reflection |
+| [Source Locations](docs/source-locations.md) | `itLoc` - capture file and line via elaborator reflection |
 | [Structural Diffs](docs/diffs.md) | Colored diff output for complex value failures |
 | [Hedgehog](docs/hedgehog.md) | Property testing via `evince-hedgehog` + `idris2-hedgehog` |
 | [Async drivers](docs/async.md) | Concurrent / parallel execution: `evince-async`, `-js`, `-posix`, `runSpecAsync*` |

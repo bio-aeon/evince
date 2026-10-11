@@ -9,6 +9,7 @@ import Evince.HooksSpec
 import Evince.JUnitSpec
 import Evince.RunnerSpec
 import Evince.SrcLocSpec
+import Evince.ChainingSpec
 
 main : IO ()
 main = runSpec $ do
@@ -20,3 +21,4 @@ main = runSpec $ do
   junitSpec
   srcLocSpec
   runnerSpec
+  chainingSpec

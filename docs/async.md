@@ -56,29 +56,18 @@ main = runSpecAsync spec
 
 ## Async test bodies
 
-`it` / `itIO` cover pure and `IO` test bodies. To write a body that is itself an
-`Async` computation - so it can await a `Promise`, `cede`, spawn fibers, or race -
-use the async cousins (from `Evince.Async.Spec`, re-exported by every driver):
-
-| Function | Test body | Mirrors |
-|---|---|---|
-| `itAsync` | `Async e [] (TestResult ())` | `it` / `itIO` |
-| `itAsyncWith` | `a -> Async e [] (TestResult ())`, receiving the group's resource | `itWith` / `itIOWith` |
-| `itAsyncLoc` | `Async e [] (TestResult ())`, with the call-site location captured | `itLoc` / `itIOLoc` |
-| `xitAsync` | body ignored; the test is reported as pending | `xit` / `xitIO` |
+In a `Spec (Async e [])`, core's `it`, `itWith`, `xit` and `itLoc` take `Async`
+chains, so a test body can await a `Promise`, `cede`, spawn fibers, or race:
 
 ```idris
-itAsync "runs in a fiber" $ do
-  cede                       -- yield: await a Promise, spawn fibers, race, ...
-  pure ((1 + 1) `mustBe` 2)
+it "runs in a fiber" $ do
+  lift cede                  -- yield: await a Promise, spawn fibers, race, ...
+  (1 + 1) `mustBe` 2
 ```
 
-Assert with the pure matchers (as above); the IO-shaped helpers (`mustReturn`,
-`mustError`) need `liftIO`.
-
-`itAsyncLoc` captures the call-site file and line (shown on failure), like core's
-`itLoc`. Pass a leading `` `(()) `` and enable `%language ElabReflection` - see
-[Source Locations](source-locations.md).
+`Async`-native actions enter with `lift`, and `mustReturn` takes an `Async`
+action directly. An `IO` chain (a helper, `mustError`) can be the whole body;
+inside an `Async` chain it enters with `hoistIO`.
 
 ## Runner entry points
 

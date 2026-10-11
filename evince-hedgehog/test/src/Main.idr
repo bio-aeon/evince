@@ -15,14 +15,14 @@ main = runSpec $ do
       x <- forAll $ int (linear 0 100)
       diff (x + 0) (==) x
 
-    itIO "reports the label, counterexample and recheck seed on failure" $ do
-      Fail (Reason msg) <- runProperty "false property" (property1 $ diff 1 (==) (the Int 2))
-        | _ => pure (Fail (Reason "expected Fail (Reason ...) from the bridge"))
-      pure $ do
-        msg `mustSatisfy` isInfixOf "false property"
-        msg `mustSatisfy` isInfixOf "recheck"
-        msg `mustSatisfy` isInfixOf "2"
+    it "reports the label, counterexample and recheck seed on failure" $ do
+      Fail (Reason msg) <- liftIO $ runTestResultT $
+                              runProperty "false property" (property1 $ diff 1 (==) (the Int 2))
+        | _ => mustFail "expected Fail (Reason ...) from the bridge"
+      msg `mustSatisfy` isInfixOf "false property"
+      msg `mustSatisfy` isInfixOf "recheck"
+      msg `mustSatisfy` isInfixOf "2"
 
-    itIO "counts a failing property in the summary" $ do
-      s <- runSpecWithSummary $ prop "fails" (property1 $ diff 1 (==) (the Int 2))
-      pure $ s.failed `mustBe` 1
+    it "counts a failing property in the summary" $ do
+      s <- liftIO $ runSpecWithSummary $ prop "fails" (property1 $ diff 1 (==) (the Int 2))
+      s.failed `mustBe` 1

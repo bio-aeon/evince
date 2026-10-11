@@ -47,16 +47,15 @@ These hooks thread a resource into tests, transforming the `Spec` resource type:
 | `beforeAllWith` | Transform the resource type once (cached)            |
 
 `provide` is the most common entry point - it runs a setup action and makes the
-result available to all tests in the group via `itWith`/`itIOWith`:
+result available to all tests in the group via `itWith`:
 
 ```idris
 spec : Spec IO () ()
 spec = describe "Database" $
   provide (connectDb "test.db") $
   afterWith closeDb $ do
-    itIOWith "inserts a record" $ \conn => do
-      n <- insertRecord conn
-      pure $ n `mustBe` 1
+    itWith "inserts a record" $ \conn =>
+      insertRecord conn `mustReturn` 1
 ```
 
 `beforeWith` transforms an existing resource into a different type:
@@ -66,9 +65,9 @@ spec : Spec IO () ()
 spec = describe "API" $
   provide (startServer 8080) $
   beforeWith (\server => mkClient server.url) $ do
-    itIOWith "fetches status" $ \client => do
-      resp <- client.get "/health"
-      pure $ resp.status `mustBe` 200
+    itWith "fetches status" $ \client => do
+      resp <- liftIO (client.get "/health")
+      resp.status `mustBe` 200
 ```
 
 `beforeAllWith` is like `beforeWith` but caches the result - the transformation

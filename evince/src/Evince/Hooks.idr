@@ -34,7 +34,8 @@ after teardown body =
   in MkSpec (Lin <>< trees) ()
 
 ||| Wrap each test with a setup/teardown action. The wrapper receives the
-||| test action and must call it.
+||| test as a plain `m` action and must call it; teardown placed after that
+||| call runs whatever the test's result.
 export
 around : (m (TestResult ()) -> m (TestResult ())) -> Spec m a () -> Spec m a ()
 around wrapper body =
@@ -68,7 +69,9 @@ beforeWith f body =
   let trees = mapTrees (\test, o => f o >>= test) (getSpecTrees body)
   in MkSpec (Lin <>< trees) ()
 
-||| Most general hook: transform both the resource type and wrap the test action.
+||| Most general hook: transform the resource type and wrap the test action,
+||| which the wrapper receives as a plain `m` action; teardown placed after
+||| calling it runs whatever the test's result.
 export
 aroundWith : ((inner -> m (TestResult ())) -> outer -> m (TestResult ())) -> Spec m inner () -> Spec m outer ()
 aroundWith f body =

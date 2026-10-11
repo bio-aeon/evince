@@ -20,7 +20,14 @@ extractAsyncLoc spec = case getSpecTrees spec of
   _ => Nothing
 
 asyncLocSpec : Spec (Async SyncST []) () ()
-asyncLocSpec = itAsyncLoc `(()) "test" $ pure (1 `mustBe` 1)
+asyncLocSpec = itLoc `(()) "test" $ 1 `mustBe` 1
+
+failingIOChain : TestResultT IO ()
+failingIOChain = do
+  ref <- newIORef (the Nat 0)
+  modifyIORef ref (+ 1)
+  n <- readIORef ref
+  n `mustBe` 2
 
 -- Drive evalAsyncForest directly with a probe reporter, returning the raw
 -- events alongside the result.
@@ -45,26 +52,52 @@ hasAborted = any (\case SuiteAborted => True; _ => False)
 export
 driverSpec : Spec IO () ()
 driverSpec = describe "async driver" $ do
-  describe "itAsync" $ do
-    itIO "runs an Async test body" $ do
-      s <- runSpecAsyncWithSummary $
-        itAsync "passes" $ pure (1 `mustBe` 1)
-      pure $ s.passed `mustBe` 1
+  describe "pending" $ do
+    it "reports a skipped test as pending without running it" $ do
+      s <- liftIO $ runSpecAsyncWithSummary $ do
+        it "runs" $ 1 `mustBe` 1
+        xit "pended" $ 1 `mustBe` 2
+      s.passed `mustBe` 1
+      s.pending `mustBe` 1
 
-    itIO "reports a failing Async test body" $ do
-      s <- runSpecAsyncWithSummary $
-        itAsync "fails" $ pure (1 `mustBe` 2)
-      pure $ s.failed `mustBe` 1
+  describe "chained Async expectations" $ do
+    it "stops at the first failing expectation and skips the later effects" $ do
+      ref <- newIORef (the Nat 0)
+      s <- liftIO $ runSpecAsyncWithSummary $
+        it "chain" $ do
+          lift cede
+          modifyIORef ref (+ 1)
+          1 `mustBe` 2
+          modifyIORef ref (+ 1)
+          1 `mustBe` 1
+      ran <- readIORef ref
+      s.failed `mustBe` 1
+      ran `mustBe` 1
 
-    itIO "xitAsync marks the test pending without running it" $ do
-      s <- runSpecAsyncWithSummary $ do
-        itAsync "runs" $ pure (1 `mustBe` 1)
-        xitAsync "pended" $ pure (1 `mustBe` 2)
-      pure $ do
-        s.passed `mustBe` 1
-        s.pending `mustBe` 1
+  describe "it under an Async spec" $ do
+    it "chains expectations and an Async action" $ do
+      ref <- newIORef (the Nat 0)
+      s <- liftIO $ runSpecAsyncWithSummary $
+        it "chain" $ do
+          lift cede
+          modifyIORef ref (+ 1)
+          1 `mustBe` 1
+          n <- readIORef ref
+          n `mustBe` 1
+      s.passed `mustBe` 1
 
-  describe "itAsyncLoc" $ do
+    it "runs an IO chain as the test body" $ do
+      s <- liftIO $ runSpecAsyncWithSummary $ it "lifted" failingIOChain
+      s.failed `mustBe` 1
+
+    it "runs an IO chain hoisted into an Async chain" $ do
+      s <- liftIO $ runSpecAsyncWithSummary $
+        it "mixed" $ do
+          lift cede
+          hoistIO failingIOChain
+      s.failed `mustBe` 1
+
+  describe "itLoc under an Async spec" $ do
     it "captures a source location" $
       mustBeJust (extractAsyncLoc asyncLocSpec)
 
@@ -74,128 +107,121 @@ driverSpec = describe "async driver" $ do
         Nothing => mustFail "expected SrcLoc"
 
   describe "hoistSpec" $ do
-    itIO "runs a hoisted Spec IO under the driver" $ do
+    it "runs a hoisted Spec IO under the driver" $ do
       ref <- newIORef (the Nat 0)
-      let ioSpec = itIO "io" $ do modifyIORef ref (+ 1); pure (1 `mustBe` 1)
-      s <- runSpecAsyncWithSummary (hoistSpec liftIO ioSpec)
+      let ioSpec = it "io" $ do modifyIORef ref (+ 1); 1 `mustBe` 1
+      s <- liftIO $ runSpecAsyncWithSummary (hoistSpec liftIO ioSpec)
       n <- readIORef ref
-      pure $ do
-        s.passed `mustBe` 1
-        n `mustBe` 1
+      s.passed `mustBe` 1
+      n `mustBe` 1
 
   describe "concurrency (jobs > 0)" $ do
-    itIO "collects results from more groups than workers" $ do
+    it "collects results from more groups than workers" $ do
       let cfg = { jobs := 2 } defaultConfig
-      s <- runSpecAsyncWithSummaryAndConfig cfg $ do
-        describe "g1" $ itAsync "a" $ pure (1 `mustBe` 1)
-        describe "g2" $ itAsync "b" $ pure (1 `mustBe` 1)
-        describe "g3" $ itAsync "c" $ pure (1 `mustBe` 2)
-      pure $ do
-        s.passed `mustBe` 2
-        s.failed `mustBe` 1
+      s <- liftIO $ runSpecAsyncWithSummaryAndConfig cfg $ do
+        describe "g1" $ it "a" $ 1 `mustBe` 1
+        describe "g2" $ it "b" $ 1 `mustBe` 1
+        describe "g3" $ it "c" $ 1 `mustBe` 2
+      s.passed `mustBe` 2
+      s.failed `mustBe` 1
 
-    itIO "starts the next group as soon as a slot frees" $ do
+    it "starts the next group as soon as a slot frees" $ do
       ref <- newIORef (the (List String) [])
       let cfg = { jobs := 2 } defaultConfig
-      _ <- runSpecAsyncWithSummaryAndConfig cfg $ do
-        describe "slow" $ itAsync "s" $ do
-          sequence_ (replicate 50 cede)
+      _ <- liftIO $ runSpecAsyncWithSummaryAndConfig cfg $ do
+        describe "slow" $ it "s" $ do
+          lift (sequence_ (replicate 50 cede))
           liftIO (modifyIORef ref ("slow-done" ::))
-          pure (1 `mustBe` 1)
-        describe "quick" $ itAsync "q" $ pure (1 `mustBe` 1)
-        describe "late" $ itAsync "l" $ do
+          1 `mustBe` 1
+        describe "quick" $ it "q" $ 1 `mustBe` 1
+        describe "late" $ it "l" $ do
           liftIO (modifyIORef ref ("late-start" ::))
-          pure (1 `mustBe` 1)
+          1 `mustBe` 1
       order <- readIORef ref
-      pure $ reverse order `mustEqual` ["late-start", "slow-done"]
+      reverse order `mustEqual` ["late-start", "slow-done"]
 
   describe "fail-fast cancellation (jobs > 0)" $ do
-    itIO "cancels in-flight groups after the first failure" $ do
+    it "cancels in-flight groups after the first failure" $ do
       ref <- newIORef False
       let cfg = { jobs := 2, failFast := True } defaultConfig
-      s <- runSpecAsyncWithSummaryAndConfig cfg $ do
-        describe "failing" $ itAsync "boom" $ do
-          sequence_ (replicate 10 cede)
-          pure (1 `mustBe` 2)
-        describe "slow" $ itAsync "s" $ do
-          sequence_ (replicate 200 cede)
+      s <- liftIO $ runSpecAsyncWithSummaryAndConfig cfg $ do
+        describe "failing" $ it "boom" $ do
+          lift (sequence_ (replicate 10 cede))
+          1 `mustBe` 2
+        describe "slow" $ it "s" $ do
+          lift (sequence_ (replicate 200 cede))
           liftIO (writeIORef ref True)
-          pure (1 `mustBe` 1)
+          1 `mustBe` 1
       done <- readIORef ref
-      pure $ do
-        s.failed `mustBe` 1
-        done `mustBe` False
+      s.failed `mustBe` 1
+      done `mustBe` False
 
-    itIO "keeps results of groups completed before the failure" $ do
+    it "keeps results of groups completed before the failure" $ do
       let cfg = { jobs := 1, failFast := True } defaultConfig
-      s <- runSpecAsyncWithSummaryAndConfig cfg $ do
-        describe "first" $ itAsync "ok" $ pure (1 `mustBe` 1)
-        describe "second" $ itAsync "boom" $ pure (1 `mustBe` 2)
-        describe "third" $ itAsync "never" $ pure (1 `mustBe` 1)
-      pure $ do
-        s.passed `mustBe` 1
-        s.failed `mustBe` 1
+      s <- liftIO $ runSpecAsyncWithSummaryAndConfig cfg $ do
+        describe "first" $ it "ok" $ 1 `mustBe` 1
+        describe "second" $ it "boom" $ 1 `mustBe` 2
+        describe "third" $ it "never" $ 1 `mustBe` 1
+      s.passed `mustBe` 1
+      s.failed `mustBe` 1
 
-    itIO "emits SuiteAborted and flushes a cancelled group's partial output" $ do
-      (evs, r) <- runPool ({ jobs := 2, failFast := True } defaultConfig) $ do
-        describe "failing" $ itAsync "boom" $ do
-          sequence_ (replicate 10 cede)
-          pure (1 `mustBe` 2)
+    it "emits SuiteAborted and flushes a cancelled group's partial output" $ do
+      (evs, r) <- liftIO $ runPool ({ jobs := 2, failFast := True } defaultConfig) $ do
+        describe "failing" $ it "boom" $ do
+          lift (sequence_ (replicate 10 cede))
+          1 `mustBe` 2
         describe "slow" $ do
-          itAsync "first" $ pure (1 `mustBe` 1)
-          itAsync "long" $ do
-            sequence_ (replicate 200 cede)
-            pure (1 `mustBe` 1)
+          it "first" $ 1 `mustBe` 1
+          it "long" $ do
+            lift (sequence_ (replicate 200 cede))
+            1 `mustBe` 1
       let doneNames = mapMaybe (\case TestDone rep _ => Just rep.path; _ => Nothing) evs
-      pure $ do
-        hasAborted evs `mustBe` True
-        doneNames `mustEqual` [["failing", "boom"], ["slow", "first"]]
-        (fst r).passed `mustBe` 1
-        (fst r).failed `mustBe` 1
+      hasAborted evs `mustBe` True
+      doneNames `mustEqual` [["failing", "boom"], ["slow", "first"]]
+      (fst r).passed `mustBe` 1
+      (fst r).failed `mustBe` 1
 
-    itIO "skips the aborted-run note when the failure cuts no work short" $ do
-      (evs, r) <- runPool ({ jobs := 2, failFast := True } defaultConfig) $ do
-        describe "g1" $ itAsync "a" $ pure (1 `mustBe` 1)
-        describe "g2" $ itAsync "b" $ pure (1 `mustBe` 1)
-        describe "last" $ itAsync "boom" $ do
-          sequence_ (replicate 10 cede)
-          pure (1 `mustBe` 2)
-      pure $ do
-        hasAborted evs `mustBe` False
-        (fst r).passed `mustBe` 2
-        (fst r).failed `mustBe` 1
+    it "skips the aborted-run note when the failure cuts no work short" $ do
+      (evs, r) <- liftIO $ runPool ({ jobs := 2, failFast := True } defaultConfig) $ do
+        describe "g1" $ it "a" $ 1 `mustBe` 1
+        describe "g2" $ it "b" $ 1 `mustBe` 1
+        describe "last" $ it "boom" $ do
+          lift (sequence_ (replicate 10 cede))
+          1 `mustBe` 2
+      hasAborted evs `mustBe` False
+      (fst r).passed `mustBe` 2
+      (fst r).failed `mustBe` 1
 
   describe "sequential path (jobs = 0)" $ do
-    itIO "runs all tests" $ do
-      s <- runSpecAsyncWithSummary $ do
+    it "runs all tests" $ do
+      s <- liftIO $ runSpecAsyncWithSummary $ do
         it "a" $ 1 `mustBe` 1
         it "b" $ 2 `mustBe` 2
         it "c" $ 3 `mustBe` 3
-      pure $ s.passed `mustBe` 3
+      s.passed `mustBe` 3
 
-    itIO "runs before setup for each test" $ do
+    it "runs before setup for each test" $ do
       ref <- newIORef (the Nat 0)
-      _ <- runSpecAsyncWithSummary $
+      _ <- liftIO $ runSpecAsyncWithSummary $
         before (liftIO (modifyIORef ref (+ 1))) $ do
           it "a" $ 1 `mustBe` 1
           it "b" $ 2 `mustBe` 2
       count <- readIORef ref
-      pure $ count `mustBe` 2
+      count `mustBe` 2
 
-    itIO "runs beforeAll setup exactly once" $ do
+    it "runs beforeAll setup exactly once" $ do
       ref <- newIORef (the Nat 0)
-      _ <- runSpecAsyncWithSummary $
+      _ <- liftIO $ runSpecAsyncWithSummary $
         beforeAll (liftIO (modifyIORef ref (+ 1))) $ do
           it "a" $ 1 `mustBe` 1
           it "b" $ 2 `mustBe` 2
       count <- readIORef ref
-      pure $ count `mustBe` 1
+      count `mustBe` 1
 
-    itIO "fail-fast skips remaining groups without a SuiteAborted event" $ do
-      (evs, r) <- runPool ({ failFast := True } defaultConfig) $ do
-        describe "failing" $ itAsync "boom" $ pure (1 `mustBe` 2)
-        describe "after" $ itAsync "never" $ pure (1 `mustBe` 1)
-      pure $ do
-        hasAborted evs `mustBe` False
-        (fst r).failed `mustBe` 1
-        (fst r).passed `mustBe` 0
+    it "fail-fast skips remaining groups without a SuiteAborted event" $ do
+      (evs, r) <- liftIO $ runPool ({ failFast := True } defaultConfig) $ do
+        describe "failing" $ it "boom" $ 1 `mustBe` 2
+        describe "after" $ it "never" $ 1 `mustBe` 1
+      hasAborted evs `mustBe` False
+      (fst r).failed `mustBe` 1
+      (fst r).passed `mustBe` 0
